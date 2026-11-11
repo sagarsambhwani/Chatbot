@@ -1,6 +1,14 @@
+import sys
+import os
 import requests
 import json
 import subprocess
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from backend.config import OLLAMA_BASE_URL, LLM_MODEL
 
 def check_vram():
     try:
@@ -15,13 +23,13 @@ def check_vram():
 
 def test_ollama():
     print("=" * 60)
-    print("Testing Ollama with Qwen2.5 (1.5b)")
+    print(f"Testing Ollama with {LLM_MODEL}")
     print(f"Initial VRAM Usage: {check_vram()}")
     print("=" * 60)
 
-    url = "http://127.0.0.1:11434/api/chat"
+    url = f"{OLLAMA_BASE_URL}/api/chat"
     payload = {
-        "model": "qwen2.5:1.5b",
+        "model": LLM_MODEL,
         "messages": [
             {
                 "role": "system",
@@ -33,8 +41,9 @@ def test_ollama():
             }
         ],
         "stream": False,
+        "keep_alive": -1,
         "options": {
-            "num_gpu": 99  # Force all layers onto GPU
+            "num_gpu": 99
         }
     }
 

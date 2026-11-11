@@ -2,18 +2,27 @@ import time
 import json
 import requests
 import logging
-from config import OLLAMA_BASE_URL, LLM_MODEL
-from search_engine import search_web, format_web_context, should_search_web
-from rag_engine import RAGEngine, format_rag_context
+from typing import List, Dict, Any, Generator, Tuple
+from backend.config import OLLAMA_BASE_URL, LLM_MODEL
+from ai_infra.search_engine import search_web, format_web_context, should_search_web
+from ai_infra.rag_engine import RAGEngine, format_rag_context
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Assistant")
 
 class LocalAssistant:
+    """Orchestration layer: combines Intent Filter, Web Search, Document RAG, and LLM reasoning."""
+
     def __init__(self):
         self.rag = RAGEngine()
 
-    def _prepare_messages(self, user_prompt: str, chat_history: list = None, use_web: bool = True, use_rag: bool = True):
+    def _prepare_messages(
+        self,
+        user_prompt: str,
+        chat_history: list = None,
+        use_web: bool = True,
+        use_rag: bool = True
+    ) -> Tuple[List[Dict[str, str]], List[Dict], float, List[Dict], float, float]:
         t_start = time.time()
         web_results = []
         search_time = 0.0
@@ -37,7 +46,7 @@ class LocalAssistant:
             if web_context:
                 contexts.append(web_context)
 
-        # 3. Assemble System Prompt
+        # 3. Assemble System Prompt with strict citation instructions
         system_instructions = (
             "You are a helpful, intelligent local AI voice assistant powered by Ollama and Qwen2.5.\n"
             "Your answers will be displayed visually in a web chat and also read out loud.\n\n"
@@ -52,7 +61,7 @@ class LocalAssistant:
 
         messages = [{"role": "system", "content": system_instructions}]
 
-        # Append previous conversation history
+        # Append previous conversation history (last 6 turns)
         if chat_history:
             for turn in chat_history[-6:]:
                 messages.append({"role": turn["role"], "content": turn["content"]})
@@ -67,7 +76,13 @@ class LocalAssistant:
 
         return messages, web_results, search_time, rag_chunks, rag_time, t_start
 
-    def generate_response(self, user_prompt: str, chat_history: list = None, use_web: bool = True, use_rag: bool = True) -> dict:
+    def generate_response(
+        self,
+        user_prompt: str,
+        chat_history: list = None,
+        use_web: bool = True,
+        use_rag: bool = True
+    ) -> Dict[str, Any]:
         """Non-streaming batch response generator."""
         messages, web_results, search_time, rag_chunks, rag_time, t_start = self._prepare_messages(
             user_prompt, chat_history, use_web, use_rag
@@ -116,7 +131,13 @@ class LocalAssistant:
             }
         }
 
-    def generate_stream(self, user_prompt: str, chat_history: list = None, use_web: bool = True, use_rag: bool = True):
+    def generate_stream(
+        self,
+        user_prompt: str,
+        chat_history: list = None,
+        use_web: bool = True,
+        use_rag: bool = True
+    ) -> Generator[Dict[str, Any], None, None]:
         """Streaming generator yielding Server-Sent Events JSON objects."""
         messages, web_results, search_time, rag_chunks, rag_time, t_start = self._prepare_messages(
             user_prompt, chat_history, use_web, use_rag

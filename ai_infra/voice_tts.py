@@ -4,12 +4,14 @@ import wave
 import time
 import logging
 from piper.voice import PiperVoice
-from config import PIPER_MODEL_PATH, PIPER_CONFIG_PATH, BASE_DIR
+from backend.config import PIPER_MODEL_PATH, PIPER_CONFIG_PATH, AUDIO_CACHE_DIR
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VoiceTTS")
 
 class TextToSpeech:
+    """Local Text-to-Speech synthesis using Piper TTS on ONNX Runtime."""
+
     def __init__(self):
         self.voice = None
         self._load_voice()
@@ -21,14 +23,14 @@ class TextToSpeech:
                 self.voice = PiperVoice.load(PIPER_MODEL_PATH, config_path=PIPER_CONFIG_PATH)
                 logger.info("Piper voice model ready.")
             else:
-                logger.warning("Piper voice files not found.")
+                logger.warning(f"Piper voice files not found at {PIPER_MODEL_PATH}")
         except Exception as e:
             logger.error(f"Failed to load Piper voice: {e}")
 
     @staticmethod
     def clean_text_for_speech(text: str) -> str:
-        """Strip markdown syntax, URLs, citations, code blocks for speech synthesis."""
-        # Remove code blocks
+        """Strip markdown syntax and raw URLs so spoken output sounds natural."""
+        # Code snippets
         clean = re.sub(r"```[\s\S]*?```", " Code snippet omitted. ", text)
         clean = re.sub(r"`.*?`", "", clean)
         # Convert markdown links [Text](URL) -> Text
@@ -39,37 +41,39 @@ class TextToSpeech:
         clean = re.sub(r"\[(Web|Doc)[^\]]*\]", "", clean)
         # Remove extra asterisks and underscores
         clean = clean.replace("**", "").replace("*", "").replace("_", "")
-        # Remove excessive whitespace
+        # Normalize whitespace
         clean = re.sub(r"\s+", " ", clean).strip()
         return clean
 
-    def synthesize(self, text: str, output_filename: str = None) -> str:
-        """Synthesize text into a WAV file. Returns relative path to the generated WAV."""
+    def synthesize(self, text: str, output_filename: str = None) -> tuple:
+        """Synthesize text into WAV audio. Returns (audio_url, elapsed_seconds)."""
         if not self.voice:
             self._load_voice()
         if not self.voice:
-            logger.error("TTS voice unavailable.")
-            return ""
+            logger.error("TTS voice model is not loaded.")
+            return "", 0.0
 
-        spoken_text = self.clean_text_for_speech(text)
-        if not spoken_text:
-            return ""
+        clean_text = self.clean_text_for_speech(text)
+        if not clean_text:
+            return "", 0.0
 
-        # Limit spoken text length if necessary for speed
-        if len(spoken_text) > 1000:
-            spoken_text = spoken_text[:1000] + "..."
+        if len(clean_text) > 1000:
+            clean_text = clean_text[:1000] + "..."
 
         if not output_filename:
             output_filename = f"speech_{int(time.time() * 1000)}.wav"
 
-        audio_dir = os.path.join(BASE_DIR, "static", "audio")
-        os.makedirs(audio_dir, exist_ok=True)
-        out_path = os.path.join(audio_dir, output_filename)
+        os.makedirs(AUDIO_CACHE_DIR, exist_ok=True)
+        out_path = os.path.join(AUDIO_CACHE_DIR, output_filename)
 
+        t0 = time.time()
         try:
             with wave.open(out_path, "wb") as wav_file:
-                self.voice.synthesize_wav(spoken_text, wav_file)
-            return f"/static/audio/{output_filename}"
+                self.voice.synthesize_wav(clean_text, wav_file)
+            elapsed = round(time.time() - t0, 3)
+            audio_url = f"/static/audio/{output_filename}"
+            logger.info(f"Synthesized TTS audio in {elapsed}s: {audio_url}")
+            return audio_url, elapsed
         except Exception as e:
-            logger.error(f"TTS synthesis error: {e}")
-            return ""
+            logger.error(f"TTS Synthesis error: {e}")
+            return "", 0.0
