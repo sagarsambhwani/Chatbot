@@ -1,0 +1,27 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Voice model weights & outputs (can be downloaded via download_voice.py)
+voices/*.onnx
+voices/*.json
+*.wav
+static/audio/*.wav
+!static/audio/.gitkeep
+
+# Local vector cache
+data/vector_index.json
+
+# Environment / OS / Editor files
+.env
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

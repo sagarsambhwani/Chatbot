@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ollama / Local Ollama Voice Assistant</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            linen: {
+              canvas: '#fbf9f4',
+              surface: '#ffffff',
+              surfaceAlt: '#f5efe6',
+              border: '#e8e1d5',
+              borderSubtle: '#f0e9df',
+              text: '#2b2622',
+              muted: '#7c746d',
+              codeBg: '#f0e7db',
+              codeText: '#6b5344',
+              accent: '#2b2622',
+              accentHover: '#423b35',
+              userBubble: '#f3ece2',
+              link: '#1d4ed8'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Inter', 'Helvetica', 'Arial', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Custom Scrollbar in Warm Linen Theme */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #dcd4c7; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #c5bbb0; }
+
+    /* Prose Styling matching the Screenshot */
+    .prose-antigravity {
+      color: #2b2622;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      word-break: break-word;
+    }
+    .prose-antigravity p { margin-bottom: 0.85rem; }
+    .prose-antigravity p:last-child { margin-bottom: 0; }
+    .prose-antigravity ul { list-style-type: disc; margin-left: 1.4rem; margin-bottom: 0.85rem; }
+    .prose-antigravity ol { list-style-type: decimal; margin-left: 1.4rem; margin-bottom: 0.85rem; }
+    .prose-antigravity li { margin-bottom: 0.35rem; }
+    .prose-antigravity strong { color: #1c1917; font-weight: 600; }
+    .prose-antigravity em { color: #57534e; font-style: italic; }
+    .prose-antigravity a { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }
+    
+    /* Inline Code Pill matching the exact peach/sand badge in the screenshot */
+    .prose-antigravity code:not(pre code) {
+      background-color: #f0e7db;
+      color: #6b5344;
+      padding: 0.15rem 0.45rem;
+      border-radius: 0.375rem;
+      font-size: 0.85rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      border: 1px solid #e3d7c7;
+    }
+    .prose-antigravity pre {
+      background: #f5efe6;
+      border: 1px solid #e3d7c7;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 0.85rem 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+      color: #38332e;
+    }
+    .prose-antigravity pre code {
+      background: transparent;
+      padding: 0;
+      border: none;
+      color: inherit;
+    }
+    .prose-antigravity hr {
+      border: none;
+      border-top: 1px solid #e8e1d5;
+      margin: 1.25rem 0;
+    }
+    .prose-antigravity h1, .prose-antigravity h2, .prose-antigravity h3, .prose-antigravity h4 {
+      color: #2b2622;
+      font-weight: 600;
+      margin-top: 1.25rem;
+      margin-bottom: 0.65rem;
+    }
+    .prose-antigravity h1 { font-size: 1.35rem; }
+    .prose-antigravity h2 { font-size: 1.15rem; }
+    .prose-antigravity h3 { font-size: 1.05rem; }
+
+    /* Blinking typing cursor */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    .stream-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      background-color: #2b2622;
+      vertical-align: text-bottom;
+      margin-left: 2px;
+      animation: blink 0.8s infinite;
+    }
+
+    /* Voice recording pulse */
+    @keyframes pulse-recording {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+      70% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .recording-active {
+      animation: pulse-recording 1.4s infinite;
+      background-color: #ef4444 !important;
+      color: white !important;
+      border-color: #ef4444 !important;
+    }
+  </style>
+</head>
+<body class="bg-linen-canvas text-linen-text min-h-screen flex flex-col font-sans antialiased overflow-hidden selection:bg-[#ebdcc8]">
+
+  <!-- ============================================================ -->
+  <!-- TOP BREADCRUMB HEADER (Matches Screenshot)                   -->
+  <!-- ============================================================ -->
+  <header class="h-12 px-6 flex items-center justify-between border-b border-linen-border/70 bg-linen-canvas/90 backdrop-blur z-20 flex-shrink-0 select-none">
+    <div class="flex items-center gap-2 text-xs text-linen-muted">
+      <span class="font-medium text-linen-text/80">ollama</span>
+      <span>/</span>
+      <span class="font-normal text-linen-muted">Local Ollama Voice Assistant</span>
+    </div>
+
+    <!-- Right: VRAM Hardware Pill & Options -->
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-linen-surfaceAlt border border-linen-border text-[11px] text-linen-muted">
+        <i class="fa-solid fa-microchip text-emerald-600 text-[10px]"></i>
+        <span class="text-linen-text font-medium">GTX 1650</span>
+        <span class="text-linen-border">|</span>
+        <span id="vram-stat-text" class="font-mono text-linen-text">VRAM: checking...</span>
+      </div>
+
+      <button onclick="toggleDocModal(true)" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-linen-surface hover:bg-linen-surfaceAlt border border-linen-border text-xs text-linen-text transition shadow-sm" title="Knowledge Base">
+        <i class="fa-regular fa-folder-open text-amber-600 text-[11px]"></i>
+        <span class="text-[11px] font-medium">Docs</span>
+        <span id="doc-badge" class="ml-0.5 px-1.5 py-0.2 rounded-full bg-linen-codeBg text-linen-codeText text-[10px]">1</span>
+      </button>
+
+      <button onclick="startNewChat()" class="p-1.5 rounded-lg text-linen-muted hover:text-linen-text hover:bg-linen-surfaceAlt transition" title="New chat">
+        <i class="fa-solid fa-rotate-right text-xs"></i>
+      </button>
+
+      <span class="text-linen-muted/60 text-xs select-none">⋮</span>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- MAIN CHAT CANVAS (Matches Screenshot)                        -->
+  <!-- ============================================================ -->
+  <div class="flex-1 flex flex-col h-full relative overflow-hidden bg-linen-canvas">
+    
+    <!-- Messages Scroll Container -->
+    <main id="chat-container" class="flex-1 overflow-y-auto px-6 py-6 scroll-smooth relative">
+      <div id="messages-wrapper" class="max-w-3xl mx-auto w-full space-y-7 pb-10">
+        
+        <!-- Welcome Hero (shown when empty) -->
+        <div id="welcome-hero" class="text-center pt-16 pb-8 space-y-5">
+          <div class="w-12 h-12 mx-auto rounded-2xl bg-linen-surfaceAlt border border-linen-border flex items-center justify-center shadow-sm">
+            <i class="fa-solid fa-sparkles text-linen-text text-xl"></i>
+          </div>
+          <div class="space-y-1">
+            <h2 class="text-xl font-medium text-linen-text">Local Ollama Voice Assistant</h2>
+            <p class="text-xs text-linen-muted">Running 100% locally on your machine • Qwen2.5 on NVIDIA GTX 1650</p>
+          </div>
+
+          <!-- Starter Chips -->
+          <div class="flex flex-wrap justify-center gap-2 pt-2 max-w-xl mx-auto text-xs">
+            <button onclick="useQuickPrompt('What are the latest discoveries from the James Webb Telescope?')"
+              class="px-3.5 py-2 rounded-xl bg-linen-surface hover:bg-linen-surfaceAlt border border-linen-border text-linen-text transition shadow-sm text-left">
+              🔭 Latest Space News
+            </button>
+            <button onclick="useQuickPrompt('Summarize the system specs and architecture from my local docs.')"
+              class="px-3.5 py-2 rounded-xl bg-linen-surface hover:bg-linen-surfaceAlt border border-linen-border text-linen-text transition shadow-sm text-left">
+              📄 Query Local Docs
+            </button>
+            <button onclick="useQuickPrompt('Tell me a short funny joke.')"
+              class="px-3.5 py-2 rounded-xl bg-linen-surface hover:bg-linen-surfaceAlt border border-linen-border text-linen-text transition shadow-sm text-left">
+              ✨ Instant Chitchat
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Invisible Anchor for Auto-Scroll -->
+      <div id="scroll-anchor" class="h-6"></div>
+    </main>
+
+    <!-- Floating Scroll-To-Bottom Down Arrow (Matches Screenshot!) -->
+    <button id="scroll-down-btn" onclick="userHasScrolledUp=false; scrollToBottom(true)"
+      class="hidden absolute bottom-36 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white border border-linen-border shadow-md hover:shadow-lg text-linen-muted hover:text-linen-text flex items-center justify-center transition-all duration-200 z-30"
+      title="Scroll to bottom">
+      <i class="fa-solid fa-arrow-down text-xs"></i>
+    </button>
+
+    <!-- ============================================================ -->
+    <!-- FLOATING OMNIBAR / INPUT CAPSULE (Exact Screenshot Style)    -->
+    <!-- ============================================================ -->
+    <footer class="p-4 bg-gradient-to-t from-linen-canvas via-linen-canvas to-transparent flex-shrink-0 z-20">
+      <div class="max-w-3xl mx-auto">
+        
+        <!-- White Rounded Capsule Container -->
+        <div class="bg-white border border-[#e5ded3] rounded-3xl p-3 shadow-md focus-within:shadow-lg focus-within:border-[#cfc6b8] transition-all duration-200">
+          
+          <!-- Textarea Input Row -->
+          <div class="px-2 pt-1">
+            <textarea id="user-input" rows="1" placeholder="Ask anything, @ to mention, / for actions"
+              oninput="autoGrowTextarea(this)"
+              onkeydown="handleTextareaKey(event)"
+              class="w-full bg-transparent text-linen-text placeholder-[#8e867f] text-sm focus:outline-none resize-none max-h-40 leading-relaxed"></textarea>
+          </div>
+
+          <!-- Bottom Capsule Row: Left Actions + Model Tag, Right Tools + Send -->
+          <div class="flex items-center justify-between pt-2 px-1">
+            
+            <!-- Left: '+' Button & Model Tag (Matches Screenshot: "+ Gemini 3.8 Flash High ^") -->
+            <div class="flex items-center gap-2">
+              <button onclick="toggleDocModal(true)" type="button" class="w-6 h-6 rounded-md hover:bg-linen-surfaceAlt text-linen-muted hover:text-linen-text flex items-center justify-center transition" title="Add document">
+                <i class="fa-solid fa-plus text-xs"></i>
+              </button>
+
+              <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-medium text-linen-text select-none cursor-default">
+                <span>Qwen 2.5 1.5B (GPU)</span>
+                <i class="fa-solid fa-chevron-up text-[9px] text-linen-muted"></i>
+              </div>
+            </div>
+
+            <!-- Right: Feature Toggles + Mic + Dark Circular Send Button -->
+            <div class="flex items-center gap-2">
+              
+              <!-- Web Search Toggle Pill -->
+              <button id="btn-toggle-web" onclick="toggleOption('web')" type="button"
+                class="px-2 py-0.5 rounded-full border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 text-[11px] font-medium flex items-center gap-1 transition select-none">
+                <i class="fa-solid fa-globe text-[10px]"></i>
+                <span>Search</span>
+              </button>
+
+              <!-- Document RAG Toggle Pill -->
+              <button id="btn-toggle-rag" onclick="toggleOption('rag')" type="button"
+                class="px-2 py-0.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[11px] font-medium flex items-center gap-1 transition select-none">
+                <i class="fa-solid fa-book-bookmark text-[10px]"></i>
+                <span>Docs</span>
+              </button>
+
+              <!-- Spoken Voice Toggle Pill -->
+              <button id="btn-toggle-tts" onclick="toggleOption('tts')" type="button"
+                class="px-2 py-0.5 rounded-full border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 text-[11px] font-medium flex items-center gap-1 transition select-none">
+                <i class="fa-solid fa-volume-high text-[10px]"></i>
+                <span>Voice</span>
+              </button>
+
+              <input type="checkbox" id="toggle-web" checked class="hidden">
+              <input type="checkbox" id="toggle-rag" checked class="hidden">
+              <input type="checkbox" id="toggle-tts" checked class="hidden">
+
+              <!-- Microphone Icon (Matches Screenshot) -->
+              <button id="mic-btn" onclick="toggleVoiceRecording()" title="Speak with microphone"
+                class="w-7 h-7 rounded-full text-linen-muted hover:text-linen-text hover:bg-linen-surfaceAlt flex items-center justify-center transition">
+                <i id="mic-icon" class="fa-solid fa-microphone text-xs"></i>
+              </button>
+
+              <!-- Dark Circular Action Button (Matches Screenshot: dark circle with sparkle/arrow) -->
+              <button id="send-btn" onclick="sendMessage()" title="Send message"
+                class="w-7 h-7 rounded-full bg-[#2d2926] text-white hover:bg-[#423b35] flex items-center justify-center transition shadow-sm disabled:opacity-40">
+                <i class="fa-solid fa-sparkles text-[11px]"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- KNOWLEDGE BASE MODAL (Warm Linen Theme)                      -->
+  <!-- ============================================================ -->
+  <div id="doc-modal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-linen-surface border border-linen-border rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+      <div class="flex items-center justify-between border-b border-linen-border pb-3">
+        <h3 class="text-sm font-semibold text-linen-text flex items-center gap-2">
+          <i class="fa-regular fa-folder-open text-amber-600"></i> Local Knowledge Base
+        </h3>
+        <button onclick="toggleDocModal(false)" class="text-linen-muted hover:text-linen-text p-1">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-linen-muted">
+        Upload reference files (.txt, .md, .pdf). They are chunked and embedded directly into your GPU VRAM with <code class="text-linen-codeText">nomic-embed-text</code>.
+      </p>
+
+      <!-- Drag & Drop Upload -->
+      <div class="border-2 border-dashed border-linen-border hover:border-linen-text rounded-xl p-6 text-center transition cursor-pointer bg-linen-surfaceAlt/60 group"
+           onclick="document.getElementById('file-upload').click()">
+        <input type="file" id="file-upload" class="hidden" accept=".txt,.md,.pdf" onchange="uploadDocument(this)">
+        <i class="fa-solid fa-cloud-arrow-up text-linen-muted group-hover:text-linen-text text-xl mb-1.5 transition"></i>
+        <p class="text-xs text-linen-text font-medium">Click to upload document (.pdf, .txt, .md)</p>
+        <p class="text-[11px] text-linen-muted mt-0.5">Automatic semantic chunking & GPU vector embedding</p>
+      </div>
+
+      <!-- Indexed Document List -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between text-xs text-linen-muted font-medium">
+          <span>Indexed Files:</span>
+          <span id="doc-chunks-info" class="text-[11px] font-mono text-emerald-700">0 chunks</span>
+        </div>
+        <div id="doc-list" class="max-h-36 overflow-y-auto space-y-1 pr-1 text-xs">
+          <div class="text-linen-muted italic">Loading files...</div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="pt-3 flex justify-between items-center border-t border-linen-border text-xs">
+        <button onclick="reindexDocs()" class="px-3 py-1.5 rounded-lg bg-linen-surfaceAlt hover:bg-[#eae1d5] text-linen-text border border-linen-border transition flex items-center gap-1.5">
+          <i class="fa-solid fa-arrows-rotate text-xs"></i> Re-index All
+        </button>
+        <button onclick="toggleDocModal(false)" class="px-4 py-1.5 rounded-lg bg-[#2b2622] hover:bg-[#423b35] text-white font-medium transition">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Player (Hidden) -->
+  <audio id="audio-player" class="hidden"></audio>
+
+  <!-- ============================================================ -->
+  <!-- JAVASCRIPT LOGIC                                             -->
+  <!-- ============================================================ -->
+  <script>
+    let chatHistory = [];
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let userHasScrolledUp = false;
+
+    const chatContainer = document.getElementById('chat-container');
+    const scrollDownBtn = document.getElementById('scroll-down-btn');
+
+    // Auto-Scroll Following & Manual Scroll Detection
+    chatContainer.addEventListener('scroll', () => {
+      const distanceFromBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
+      if (distanceFromBottom > 100) {
+        userHasScrolledUp = true;
+        if (scrollDownBtn) scrollDownBtn.classList.remove('hidden');
+      } else {
+        userHasScrolledUp = false;
+        if (scrollDownBtn) scrollDownBtn.classList.add('hidden');
+      }
+    });
+
+    function scrollToBottom(force = false) {
+      if (force || !userHasScrolledUp) {
+        const anchor = document.getElementById('scroll-anchor');
+        if (anchor) {
+          anchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else {
+          chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+        }
+      }
+    }
+
+    // New Chat Reset
+    function startNewChat() {
+      chatHistory = [];
+      userHasScrolledUp = false;
+      if (scrollDownBtn) scrollDownBtn.classList.add('hidden');
+      const container = document.getElementById('messages-wrapper');
+      container.innerHTML = `
+        <div id="welcome-hero" class="text-center pt-16 pb-8 space-y-5">
+          <div class="w-12 h-12 mx-auto rounded-2xl bg-linen-surfaceAlt border border-linen-border flex items-center justify-center shadow-sm">
+            <i class="fa-solid fa-sparkles text-linen-text text-xl"></i>
+          </div>
+          <div class="space-y-1">
+            <h2 class="text-xl font-medium text-linen-text">Local Ollama Voice Assistant</h2>
+            <p class="text-xs text-linen-muted">Running 100% locally on your machine • Qwen2.5 on NVIDIA GTX 1650</p>
+          </div>
+          <div class="flex flex-wrap justify-center gap-2 pt-2 max-w-xl mx-auto text-xs">
+            <button onclick="useQuickPrompt('What are the latest discoveries from the James Webb Telescope?')"
+              class="px-3.5 py-2 rounded-xl bg-linen-surface hover:bg-linen-surfaceAlt border border-linen-border text-linen-text transition shadow-sm text-left">
+              🔭 Latest Space News
+            </button>
+            <button onclick="useQuickPrompt('Summarize the system specs and architecture from my local docs.')"
+              class="px-3.5 py-2 rounded-xl bg-linen-surface hover:bg-linen-surfaceAlt border border-linen-border text-linen-text transition shadow-sm text-left">
+              📄 Query Local Docs
+            </button>
+            <button onclick="useQuickPrompt('Tell me a short funny joke.')"
+              class="px-3.5 py-2 rounded-xl bg-linen-surface hover:bg-linen-surfaceAlt border border-linen-border text-linen-text transition shadow-sm text-left">
+              ✨ Instant Chitchat
+            </button>
+          </div>
+        </div>
+      `;
+      scrollToBottom(true);
+    }
+
+    function useQuickPrompt(text) {
+      const input = document.getElementById('user-input');
+      input.value = text;
+      autoGrowTextarea(input);
+      sendMessage();
+    }
+
+    // Mode Toggle Pills
+    function toggleOption(type) {
+      const checkbox = document.getElementById(`toggle-${type}`);
+      const btn = document.getElementById(`btn-toggle-${type}`);
+      checkbox.checked = !checkbox.checked;
+
+      if (checkbox.checked) {
+        if (type === 'web') {
+          btn.className = "px-2 py-0.5 rounded-full border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 text-[11px] font-medium flex items-center gap-1 transition select-none";
+        } else if (type === 'rag') {
+          btn.className = "px-2 py-0.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[11px] font-medium flex items-center gap-1 transition select-none";
+        } else if (type === 'tts') {
+          btn.className = "px-2 py-0.5 rounded-full border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 text-[11px] font-medium flex items-center gap-1 transition select-none";
+        }
+      } else {
+        btn.className = "px-2 py-0.5 rounded-full border border-linen-border bg-linen-surfaceAlt/60 text-linen-muted hover:bg-linen-surfaceAlt text-[11px] font-medium flex items-center gap-1 transition select-none opacity-50";
+      }
+    }
+
+    // Auto-grow textarea
+    function autoGrowTextarea(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    }
+
+    function handleTextareaKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    // VRAM Polling
+    async function updateVRAMStatus() {
+      try {
+        const res = await fetch('/api/system_status');
+        const data = await res.json();
+        const statText = document.getElementById('vram-stat-text');
+        if (data.vram && data.vram !== 'N/A') {
+          statText.innerText = data.vram;
+        }
+      } catch (e) {
+        console.error("VRAM read error:", e);
+      }
+    }
+    updateVRAMStatus();
+    setInterval(updateVRAMStatus, 5000);
+
+    // Knowledge Base Modal Logic
+    function toggleDocModal(show) {
+      document.getElementById('doc-modal').classList.toggle('hidden', !show);
+      if (show) loadDocList();
+    }
+
+    async function loadDocList() {
+      try {
+        const res = await fetch('/api/documents');
+        const data = await res.json();
+        const listEl = document.getElementById('doc-list');
+        const badge = document.getElementById('doc-badge');
+        const chunksInfo = document.getElementById('doc-chunks-info');
+
+        listEl.innerHTML = '';
+        badge.innerText = `${data.documents.length}`;
+        chunksInfo.innerText = `${data.indexed_chunks} chunks in VRAM`;
+
+        if (data.documents.length === 0) {
+          listEl.innerHTML = '<div class="text-linen-muted italic">No documents uploaded yet.</div>';
+        } else {
+          data.documents.forEach(doc => {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-linen-surfaceAlt/70 px-2.5 py-1.5 rounded-lg text-linen-text';
+            item.innerHTML = `<span class="truncate flex items-center gap-2"><i class="fa-regular fa-file-lines text-linen-codeText text-[11px]"></i>${doc}</span>`;
+            listEl.appendChild(item);
+          });
+        }
+      } catch (e) {
+        console.error("Doc load error:", e);
+      }
+    }
+    loadDocList();
+
+    async function uploadDocument(input) {
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const listEl = document.getElementById('doc-list');
+      listEl.innerHTML = '<div class="text-linen-codeText animate-pulse text-xs">Embedding on GPU...</div>';
+      
+      try {
+        const res = await fetch('/api/documents', { method: 'POST', body: formData });
+        await res.json();
+        loadDocList();
+      } catch (e) {
+        alert("Upload error: " + e);
+        loadDocList();
+      }
+    }
+
+    async function reindexDocs() {
+      const chunksInfo = document.getElementById('doc-chunks-info');
+      chunksInfo.innerText = "Re-indexing on GPU...";
+      try {
+        const res = await fetch('/api/documents/reindex', { method: 'POST' });
+        await res.json();
+        loadDocList();
+      } catch (e) {
+        alert("Re-index error: " + e);
+      }
+    }
+
+    // Push-to-Talk Voice Recording
+    async function toggleVoiceRecording() {
+      const micBtn = document.getElementById('mic-btn');
+      const micIcon = document.getElementById('mic-icon');
+
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = e => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            await sendAudioForTranscription(audioBlob);
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          micBtn.classList.add('recording-active');
+          micIcon.className = "fa-solid fa-stop text-xs text-white";
+        } catch (err) {
+          alert("Microphone error: " + err.message);
+        }
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        micBtn.classList.remove('recording-active');
+        micIcon.className = "fa-solid fa-microphone text-xs";
+      }
+    }
+
+    async function sendAudioForTranscription(blob) {
+      const inputEl = document.getElementById('user-input');
+      inputEl.placeholder = "Transcribing with Whisper...";
+      
+      const formData = new FormData();
+      formData.append('audio', blob, 'input.wav');
+
+      try {
+        const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.text) {
+          inputEl.value = data.text;
+          autoGrowTextarea(inputEl);
+          sendMessage(data.stt_seconds || 0.0);
+        } else {
+          inputEl.placeholder = "No speech detected. Try again.";
+        }
+      } catch (err) {
+        console.error("STT error:", err);
+        inputEl.placeholder = "Transcription error.";
+      }
+    }
+
+    // Audio Playback
+    function playAudio(url) {
+      const player = document.getElementById('audio-player');
+      player.src = url;
+      player.play().catch(e => console.log("Audio autoplay note:", e));
+    }
+
+    // Copy to clipboard helper
+    function copyText(btn, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Copied`;
+        setTimeout(() => { btn.innerHTML = orig; }, 2000);
+      });
+    }
+
+    // Toggle collapsible thinking/work step
+    function toggleStep(id) {
+      const el = document.getElementById(id);
+      const icon = document.getElementById(id + '-icon');
+      if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        icon.className = 'fa-solid fa-chevron-down text-[9px]';
+      } else {
+        el.classList.add('hidden');
+        icon.className = 'fa-solid fa-chevron-right text-[9px]';
+      }
+    }
+
+    // ============================================================
+    // SEND MESSAGE & REAL-TIME STREAMING
+    // ============================================================
+    async function sendMessage(sttSeconds = 0.0) {
+      const inputEl = document.getElementById('user-input');
+      const query = inputEl.value.trim();
+      if (!query) return;
+
+      // Remove welcome hero if present
+      const hero = document.getElementById('welcome-hero');
+      if (hero) hero.remove();
+
+      const messagesWrapper = document.getElementById('messages-wrapper');
+
+      // 1. Render User Message (Clean warm rounded bubble)
+      const userDiv = document.createElement('div');
+      userDiv.className = 'flex justify-end';
+      userDiv.innerHTML = `
+        <div class="bg-linen-userBubble border border-linen-border/60 text-linen-text rounded-2xl px-4 py-2.5 text-sm max-w-[85%] sm:max-w-[75%] leading-relaxed shadow-sm">
+          ${query.replace(/\n/g, '<br>')}
+        </div>
+      `;
+      messagesWrapper.appendChild(userDiv);
+
+      // Reset textarea
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+
+      // 2. Render Assistant Streaming Container (Matches Screenshot Layout)
+      const msgId = 'msg-' + Date.now();
+      const asstDiv = document.createElement('div');
+      asstDiv.className = 'space-y-3';
+      asstDiv.id = msgId;
+      asstDiv.innerHTML = `
+        <!-- Collapsible Work / Step Pill (Matches Screenshot: 'Worked for 42s >') -->
+        <div id="${msgId}-step" class="text-xs text-linen-muted hover:text-linen-text cursor-pointer select-none flex items-center gap-1.5 transition" onclick="toggleStep('${msgId}-step-details')">
+          <span id="${msgId}-step-label" class="flex items-center gap-1.5">
+            <i class="fa-solid fa-spinner fa-spin text-[10px] text-linen-muted"></i> Thinking...
+          </span>
+          <i id="${msgId}-step-details-icon" class="fa-solid fa-chevron-right text-[9px]"></i>
+        </div>
+
+        <div id="${msgId}-step-details" class="hidden text-xs text-linen-muted bg-linen-surfaceAlt/70 border border-linen-border rounded-xl p-3 space-y-1">
+          <div id="${msgId}-citations-list"></div>
+        </div>
+
+        <!-- Main Formatted Response Text -->
+        <div class="prose-antigravity" id="${msgId}-content">
+          <span class="stream-cursor"></span>
+        </div>
+
+        <!-- Action Buttons (Copy, Replay, Latency) -->
+        <div id="${msgId}-actions" class="flex flex-wrap items-center gap-3 pt-2 text-xs text-linen-muted select-none border-t border-linen-border/40"></div>
+      `;
+      messagesWrapper.appendChild(asstDiv);
+      userHasScrolledUp = false;
+      scrollToBottom(true);
+
+      const payload = {
+        message: query,
+        history: chatHistory,
+        use_web: document.getElementById('toggle-web').checked,
+        use_rag: document.getElementById('toggle-rag').checked,
+        enable_tts: document.getElementById('toggle-tts').checked,
+        stt_seconds: sttSeconds
+      };
+
+      let accumulatedText = '';
+      const contentEl = document.getElementById(`${msgId}-content`);
+      const stepLabelEl = document.getElementById(`${msgId}-step-label`);
+      const citationsListEl = document.getElementById(`${msgId}-citations-list`);
+      const actionsEl = document.getElementById(`${msgId}-actions`);
+
+      try {
+        const res = await fetch('/api/chat_stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const event = JSON.parse(line.slice(6));
+
+                // 1. Metadata: Citations
+                if (event.type === 'metadata') {
+                  let citationHtml = '';
+                  if (event.web_sources && event.web_sources.length > 0) {
+                    citationHtml += '<div class="space-y-1"><span class="font-medium">Web Sources:</span>';
+                    event.web_sources.forEach(w => {
+                      citationHtml += `
+                        <div><a href="${w.url}" target="_blank" class="text-linen-link underline hover:opacity-80">${w.title} ↗</a></div>
+                      `;
+                    });
+                    citationHtml += '</div>';
+                  }
+
+                  if (event.doc_sources && event.doc_sources.length > 0) {
+                    citationHtml += '<div class="space-y-1 mt-1"><span class="font-medium">Local Docs:</span>';
+                    event.doc_sources.forEach(d => {
+                      citationHtml += `
+                        <div>📄 <span class="text-linen-codeText font-mono">${d.file}</span> (${Math.round(d.score * 100)}% match)</div>
+                      `;
+                    });
+                    citationHtml += '</div>';
+                  }
+                  if (citationsListEl) citationsListEl.innerHTML = citationHtml || '<div>Direct generation (No external sources needed)</div>';
+                }
+
+                // 2. Token: Stream in real-time
+                else if (event.type === 'token') {
+                  accumulatedText += event.token;
+                  contentEl.innerHTML = marked.parse(accumulatedText) + '<span class="stream-cursor"></span>';
+                  scrollToBottom(false);
+                }
+
+                // 3. Done: Finalize
+                else if (event.type === 'done') {
+                  const finalReply = accumulatedText || event.answer;
+                  contentEl.innerHTML = marked.parse(finalReply);
+                  chatHistory.push({ role: 'user', content: query });
+                  chatHistory.push({ role: 'assistant', content: finalReply });
+                  scrollToBottom(false);
+
+                  // Update Step Label to "Worked for Xs" (Matches Screenshot)
+                  const totalSecs = event.latencies?.total_seconds || 1.2;
+                  stepLabelEl.innerHTML = `Worked for ${totalSecs}s`;
+
+                  // Render Action Buttons
+                  let actionHtml = `
+                    <button onclick="copyText(this, ${JSON.stringify(finalReply)})" class="hover:text-linen-text transition flex items-center gap-1" title="Copy response">
+                      <i class="fa-regular fa-copy text-[11px]"></i> Copy
+                    </button>
+                  `;
+
+                  if (event.audio_url) {
+                    actionHtml += `
+                      <button onclick="playAudio('${event.audio_url}')" class="hover:text-linen-text transition flex items-center gap-1" title="Replay voice">
+                        <i class="fa-solid fa-volume-high text-[11px]"></i> Read aloud
+                      </button>
+                    `;
+                    if (document.getElementById('toggle-tts').checked) {
+                      playAudio(event.audio_url);
+                    }
+                  }
+
+                  if (event.latencies) {
+                    const l = event.latencies;
+                    actionHtml += `
+                      <span class="text-[11px] text-linen-muted/70 font-mono ml-auto">
+                        ${l.ttft_seconds || 0.4}s TTFT • ${l.tokens_per_sec || 78} tok/s
+                      </span>
+                    `;
+                  }
+
+                  actionsEl.innerHTML = actionHtml;
+                }
+
+                // 4. Error
+                else if (event.type === 'error') {
+                  contentEl.innerHTML = `<span class="text-rose-600 text-xs">⚠️ Error: ${event.error}</span>`;
+                  stepLabelEl.innerHTML = `Failed`;
+                }
+
+              } catch (e) {
+                console.error("Stream parse error:", e);
+              }
+            }
+          }
+        }
+
+      } catch (err) {
+        contentEl.innerHTML = '<span class="text-rose-600 text-xs">⚠️ Connection error. Please try again.</span>';
+        stepLabelEl.innerHTML = `Error`;
+      }
+    }
+  </script>
+</body>
+</html>
