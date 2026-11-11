@@ -1,20 +1,43 @@
+import os
 import time
 import json
 import requests
 import logging
-from typing import List, Dict, Any, Generator, Tuple
-from backend.config import OLLAMA_BASE_URL, LLM_MODEL
-from ai_infra.search_engine import search_web, format_web_context, should_search_web
+from typing import List, Dict, Any, Generator, Tuple, Optional
+from backend.config import OLLAMA_BASE_URL, LLM_MODEL, BASE_DIR
+from ai_infra.llm_client import OllamaClient
+from ai_infra.search_engine import search_web, format_web_context
 from ai_infra.rag_engine import RAGEngine, format_rag_context
+from intelligence.analyzer import ConversationAnalyzer
+from intelligence.response_planner import ResponsePlanner
+from intelligence.schemas import ConversationAnalysis, ResponsePlan
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Assistant")
 
 class LocalAssistant:
-    """Orchestration layer: combines Intent Filter, Web Search, Document RAG, and LLM reasoning."""
+    """Orchestration layer: combines Conversational Intelligence, Search, RAG, and LLM reasoning."""
 
-    def __init__(self):
-        self.rag = RAGEngine()
+    def __init__(self, llm_client: Optional[OllamaClient] = None, rag_engine: Optional[RAGEngine] = None):
+        self.client = llm_client or OllamaClient()
+        self.rag = rag_engine or RAGEngine()
+        self.analyzer = ConversationAnalyzer(model=LLM_MODEL, llm_client=self.client)
+        self.planner = ResponsePlanner()
+        self.generator_prompt = self._load_generator_prompt()
+
+    def _load_generator_prompt(self) -> str:
+        prompt_path = os.path.join(BASE_DIR, "prompts", "response_generator.txt")
+        try:
+            if os.path.exists(prompt_path):
+                with open(prompt_path, "r", encoding="utf-8") as f:
+                    return f.read().strip()
+        except Exception as e:
+            logger.warning(f"Could not load generator prompt from {prompt_path}: {e}")
+
+        return (
+            "You are a helpful, intelligent conversational assistant.\n"
+            "Answer the user's actual question clearly, accurately, and naturally."
+        )
 
     def _prepare_messages(
         self,
@@ -22,16 +45,28 @@ class LocalAssistant:
         chat_history: list = None,
         use_web: bool = True,
         use_rag: bool = True
-    ) -> Tuple[List[Dict[str, str]], List[Dict], float, List[Dict], float, float]:
+    ) -> Tuple[List[Dict[str, str]], List[Dict], float, List[Dict], float, float, ConversationAnalysis, ResponsePlan, float]:
         t_start = time.time()
+
+        # 1. Conversation Analyzer (Structured LLM call, temp 0)
+        t_analyzer_start = time.time()
+        analysis = self.analyzer.analyze_sync(user_prompt, history=chat_history)
+        analyzer_time = round(time.time() - t_analyzer_start, 3)
+
+        # 2. Deterministic Response Planner (Zero LLM calls)
+        plan = self.planner.create_plan(analysis)
+
+        # 3. Tool Routing Policy (Analyzer recommendations as policy input; respect caller overrides)
+        route_web = bool(use_web and analysis.needs_web_search)
+        route_rag = bool(use_rag and analysis.needs_rag)
+
         web_results = []
         search_time = 0.0
         rag_chunks = []
         rag_time = 0.0
         contexts = []
 
-        # 1. Document RAG lookup (skip for simple chitchat)
-        if use_rag and should_search_web(user_prompt):
+        if route_rag:
             t_rag_start = time.time()
             rag_chunks = self.rag.search(user_prompt, top_k=3)
             rag_time = round(time.time() - t_rag_start, 3)
@@ -39,32 +74,48 @@ class LocalAssistant:
             if rag_context:
                 contexts.append(rag_context)
 
-        # 2. Web search lookup with smart intent filter
-        if use_web:
+        if route_web:
             web_results, search_time = search_web(user_prompt, max_results=3)
             web_context = format_web_context(web_results)
             if web_context:
                 contexts.append(web_context)
 
-        # 3. Assemble System Prompt with strict citation instructions
+        # 4. Construct System Prompt using Generator Prompt + Response Plan directives
+        plan_directives = [
+            f"- Response Type: {plan.response_type}",
+            f"- Target Length: {plan.target_length}",
+            f"- Explanation Style: {plan.explanation_style}",
+            f"- Opening Strategy: {plan.opening_strategy}"
+        ]
+        if plan.sections:
+            plan_directives.append(f"- Recommended Progression: {', '.join(plan.sections)}")
+        if plan.include_example:
+            plan_directives.append("- Include at least one practical, illustrative example.")
+        if plan.include_analogy:
+            plan_directives.append("- Use an intuitive analogy to clarify the concept.")
+        if plan.include_code:
+            plan_directives.append("- Include clean, well-commented code implementation.")
+        if plan.include_caveats:
+            plan_directives.append("- Highlight important trade-offs, caveats, or limitations.")
+
         system_instructions = (
-            "You are a helpful, intelligent local AI voice assistant powered by Ollama and Qwen2.5.\n"
-            "Your answers will be displayed visually in a web chat and also read out loud.\n\n"
-            "GUIDELINES FOR ANSWERS:\n"
-            "1. STRUCTURE: Use clear, organized markdown with bullet points, short paragraphs, or bold highlights.\n"
-            "2. CITATIONS: If you use information from the provided Web Search or Document Knowledge, ALWAYS cite the source inline:\n"
-            "   - For web sources: [Web: Source Title](URL)\n"
-            "   - For local documents: [Doc: filename.ext]\n"
-            "3. If both sources are relevant, compare or combine them cleanly and cite both.\n"
-            "4. Keep the explanation conversational, clear, and direct."
+            f"{self.generator_prompt}\n\n"
+            f"[RESPONSE BLUEPRINT (GUIDANCE)]\n"
+            f"{chr(10).join(plan_directives)}\n\n"
+            "CITATION INSTRUCTIONS:\n"
+            "- When citing web search results, use markdown links: [Web: Title](URL)\n"
+            "- When citing document knowledge, use: [Doc: filename.ext]"
         )
 
         messages = [{"role": "system", "content": system_instructions}]
 
-        # Append previous conversation history (last 6 turns)
+        # Append bounded conversation history (last 6 turns)
         if chat_history:
             for turn in chat_history[-6:]:
-                messages.append({"role": turn["role"], "content": turn["content"]})
+                role = turn.get("role", "user")
+                content = turn.get("content", "").strip()
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
 
         # Append current user prompt with injected contexts
         current_user_content = user_prompt
@@ -74,7 +125,7 @@ class LocalAssistant:
 
         messages.append({"role": "user", "content": current_user_content})
 
-        return messages, web_results, search_time, rag_chunks, rag_time, t_start
+        return messages, web_results, search_time, rag_chunks, rag_time, analyzer_time, analysis, plan, t_start
 
     def generate_response(
         self,
@@ -84,8 +135,8 @@ class LocalAssistant:
         use_rag: bool = True
     ) -> Dict[str, Any]:
         """Non-streaming batch response generator."""
-        messages, web_results, search_time, rag_chunks, rag_time, t_start = self._prepare_messages(
-            user_prompt, chat_history, use_web, use_rag
+        messages, web_results, search_time, rag_chunks, rag_time, analyzer_time, analysis, plan, t_start = (
+            self._prepare_messages(user_prompt, chat_history, use_web, use_rag)
         )
 
         llm_time = 0.0
@@ -122,7 +173,10 @@ class LocalAssistant:
             "answer": reply_text,
             "web_sources": web_results,
             "doc_sources": rag_chunks,
+            "analysis": analysis.model_dump(),
+            "plan": plan.model_dump(),
             "latencies": {
+                "analyzer_seconds": analyzer_time,
                 "search_seconds": search_time,
                 "rag_seconds": rag_time,
                 "llm_seconds": llm_time,
@@ -139,16 +193,17 @@ class LocalAssistant:
         use_rag: bool = True
     ) -> Generator[Dict[str, Any], None, None]:
         """Streaming generator yielding Server-Sent Events JSON objects."""
-        messages, web_results, search_time, rag_chunks, rag_time, t_start = self._prepare_messages(
-            user_prompt, chat_history, use_web, use_rag
+        messages, web_results, search_time, rag_chunks, rag_time, analyzer_time, analysis, plan, t_start = (
+            self._prepare_messages(user_prompt, chat_history, use_web, use_rag)
         )
 
-        # 1. Yield retrieved sources & search latencies immediately
+        # 1. Yield retrieved sources & latencies immediately (do not leak internal planning JSON to user)
         yield {
             "type": "metadata",
             "web_sources": web_results,
             "doc_sources": rag_chunks,
             "latencies": {
+                "analyzer_seconds": analyzer_time,
                 "search_seconds": search_time,
                 "rag_seconds": rag_time
             }
@@ -197,6 +252,7 @@ class LocalAssistant:
                 "type": "done",
                 "answer": full_text,
                 "latencies": {
+                    "analyzer_seconds": analyzer_time,
                     "search_seconds": search_time,
                     "rag_seconds": rag_time,
                     "llm_seconds": llm_time,

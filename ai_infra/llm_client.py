@@ -55,6 +55,33 @@ class OllamaClient:
         tokens = list(self.stream_chat(messages, temperature=temperature))
         return "".join(tokens)
 
+    def chat_structured(
+        self,
+        messages: List[Dict[str, str]],
+        schema: Dict[str, Any],
+        temperature: float = 0.0,
+        num_predict: int = 256,
+        timeout: float = 30.0
+    ) -> str:
+        """Single non-streaming chat request constrained to a JSON Schema format."""
+        url = f"{self.base_url}/api/chat"
+        payload = {
+            "model": self.llm_model,
+            "messages": messages,
+            "format": schema,
+            "stream": False,
+            "keep_alive": -1,
+            "options": {
+                "temperature": temperature,
+                "num_predict": num_predict,
+                "num_gpu": 99
+            }
+        }
+        resp = requests.post(url, json=payload, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("message", {}).get("content", "")
+
     def get_embedding(self, text: str) -> List[float]:
         """Get vector embedding using Ollama nomic-embed-text."""
         url = f"{self.base_url}/api/embeddings"
