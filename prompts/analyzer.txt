@@ -28,8 +28,8 @@ WEB SEARCH RULES (STRICT CRITERIA):
   * Greetings, thanks, and small talk.
 
 DOCUMENT RAG RULES:
-- Set needs_rag = true ONLY when the user explicitly refers to uploaded documents, files, manuals, or local specs (e.g., "in the uploaded welcome guide", "in my documents").
-- Set needs_rag = false for general knowledge and standard programming tasks.
+- Set needs_rag = true when the user refers to uploaded documents, files, manuals, purchase lists, local specs, or asks about content from documents (e.g., "in the uploaded welcome guide", "in my documents", "appliance list", "from the PDF").
+- Set needs_rag = false for general knowledge, coding, greetings, and standard trivia.
 
 DEPTH RULES:
 - brief: Greetings, thanks, simple direct questions (e.g., "What is the capital of Canada?").

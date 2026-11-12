@@ -58,7 +58,7 @@ class LocalAssistant:
 
         # 3. Tool Routing Policy (Analyzer recommendations as policy input; respect caller overrides)
         route_web = bool(use_web and analysis.needs_web_search)
-        route_rag = bool(use_rag and analysis.needs_rag)
+        route_rag = bool(use_rag and (analysis.needs_rag or len(self.rag.index) > 0))
 
         web_results = []
         search_time = 0.0
@@ -68,7 +68,8 @@ class LocalAssistant:
 
         if route_rag:
             t_rag_start = time.time()
-            rag_chunks = self.rag.search(user_prompt, top_k=3)
+            min_score = 0.40 if analysis.needs_rag else 0.48
+            rag_chunks = self.rag.search(user_prompt, top_k=3, min_score=min_score)
             rag_time = round(time.time() - t_rag_start, 3)
             rag_context = format_rag_context(rag_chunks)
             if rag_context:

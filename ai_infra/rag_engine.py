@@ -52,7 +52,7 @@ class RAGEngine:
         self.load_index()
 
     def load_index(self):
-        """Load cached vector index from disk."""
+        """Load cached vector index from disk and ensure all docs are indexed."""
         if os.path.exists(self.index_file):
             try:
                 with open(self.index_file, "r", encoding="utf-8") as f:
@@ -61,7 +61,18 @@ class RAGEngine:
             except Exception as e:
                 logger.error(f"Error loading index: {e}")
                 self.index = []
-        else:
+
+        # Check if files on disk match what is in index
+        if os.path.exists(self.data_dir):
+            disk_files = set(
+                f for f in os.listdir(self.data_dir)
+                if os.path.isfile(os.path.join(self.data_dir, f)) and f.lower().endswith((".txt", ".md", ".pdf"))
+            )
+            indexed_sources = set(item.get("source") for item in self.index)
+            if disk_files != indexed_sources:
+                logger.info(f"Disk files {disk_files} do not match index sources {indexed_sources}. Re-indexing...")
+                self.index_documents()
+        elif not self.index:
             self.index_documents()
 
     def save_index(self):
@@ -125,7 +136,7 @@ class RAGEngine:
         logger.info(f"Indexing complete. Total indexed chunks: {len(self.index)}")
         return len(self.index)
 
-    def search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    def search(self, query: str, top_k: int = 3, min_score: float = 0.48) -> List[Dict[str, Any]]:
         """Search top-K relevant chunks using vector cosine similarity."""
         if not self.index:
             return []
@@ -145,8 +156,8 @@ class RAGEngine:
             })
 
         scored.sort(key=lambda x: x["score"], reverse=True)
-        # Filter by threshold (e.g., minimum 0.35 similarity)
-        relevant = [item for item in scored[:top_k] if item["score"] >= 0.35]
+        # Filter by threshold (minimum min_score similarity)
+        relevant = [item for item in scored[:top_k] if item["score"] >= min_score]
         return relevant
 
 def format_rag_context(chunks: List[Dict[str, Any]]) -> str:
