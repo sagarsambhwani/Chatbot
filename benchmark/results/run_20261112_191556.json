@@ -1,0 +1,305 @@
+{
+  "timestamp": "20261112_191556",
+  "model": "qwen2.5:1.5b",
+  "overall_accuracy_percent": 86.8,
+  "intent_accuracy_percent": 90.9,
+  "web_search_accuracy_percent": 83.3,
+  "rag_accuracy_percent": 90.0,
+  "code_accuracy_percent": 80.0,
+  "average_latency_seconds": 3.447,
+  "cases": [
+    {
+      "id": "code_01",
+      "query": "Write a Python function to compute Fibonacci numbers using dynamic programming",
+      "passed": true,
+      "latency_seconds": 4.754,
+      "expected": {
+        "intent": "coding",
+        "needs_code": true,
+        "needs_web_search": false,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "coding",
+        "topic": "programming",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": true,
+        "needs_analogy": false,
+        "needs_code": true,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": null
+      }
+    },
+    {
+      "id": "fact_01",
+      "query": "What is the capital of Canada?",
+      "passed": true,
+      "latency_seconds": 3.495,
+      "expected": {
+        "intent": "factual",
+        "desired_depth": "brief",
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "factual",
+        "topic": "Canada",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": false,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": null
+      }
+    },
+    {
+      "id": "web_price_01",
+      "query": "What is the current price of Bitcoin today?",
+      "passed": false,
+      "latency_seconds": 3.208,
+      "expected": {
+        "intent": "factual",
+        "needs_web_search": true,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "research",
+        "topic": "Bitcoin",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": false,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": true,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": null
+      }
+    },
+    {
+      "id": "web_weather_01",
+      "query": "What is the weather like in Tokyo right now?",
+      "passed": true,
+      "latency_seconds": 3.957,
+      "expected": {
+        "intent": "factual",
+        "needs_web_search": true,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "factual",
+        "topic": "weather",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": false,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": true,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": "Do you want the current weather in Tokyo, Japan, or a specific location within Tokyo?"
+      }
+    },
+    {
+      "id": "trick_current_01",
+      "query": "In physics, how does alternating current differ from direct current?",
+      "passed": true,
+      "latency_seconds": 2.935,
+      "expected": {
+        "intent": "conceptual_learning",
+        "needs_web_search": false,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "conceptual_learning",
+        "topic": "physics",
+        "knowledge_level": "advanced",
+        "desired_depth": "deep",
+        "needs_example": false,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": "Can you provide an example of alternating current and direct current?"
+      }
+    },
+    {
+      "id": "concept_transformer_01",
+      "query": "Explain how the self-attention mechanism works in transformers",
+      "passed": true,
+      "latency_seconds": 2.494,
+      "expected": {
+        "intent": "conceptual_learning",
+        "needs_web_search": false,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "conceptual_learning",
+        "topic": "self-attention mechanism",
+        "knowledge_level": "advanced",
+        "desired_depth": "deep",
+        "needs_example": true,
+        "needs_analogy": true,
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": null
+      }
+    },
+    {
+      "id": "troubleshoot_flask_01",
+      "query": "My Flask app gives KeyError: 'username' when parsing request.json. How do I debug it?",
+      "passed": false,
+      "latency_seconds": 2.72,
+      "expected": {
+        "intent": "troubleshooting",
+        "needs_code": true,
+        "needs_web_search": false,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "troubleshooting",
+        "topic": "Flask",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": true,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": null
+      }
+    },
+    {
+      "id": "rag_specs_01",
+      "query": "What GPU specifications are written in the uploaded welcome guide?",
+      "passed": false,
+      "latency_seconds": 3.597,
+      "expected": {
+        "needs_rag": true,
+        "needs_web_search": false
+      },
+      "actual": {
+        "intent": "technical_help",
+        "topic": "GPU specifications",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": false,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": true,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": "Can you please provide the specific page number or section where the GPU specifications are mentioned in the welcome guide?"
+      }
+    },
+    {
+      "id": "casual_greeting_01",
+      "query": "Hello! Good morning, how are you?",
+      "passed": true,
+      "latency_seconds": 3.64,
+      "expected": {
+        "intent": "casual",
+        "desired_depth": "brief",
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_code": false
+      },
+      "actual": {
+        "intent": "casual",
+        "topic": "greeting",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": false,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": "Is there anything specific you would like to talk about today?"
+      }
+    },
+    {
+      "id": "casual_thanks_01",
+      "query": "Thanks a lot for your help!",
+      "passed": true,
+      "latency_seconds": 3.298,
+      "expected": {
+        "intent": "casual",
+        "desired_depth": "brief",
+        "needs_web_search": false,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "casual",
+        "topic": "thanks",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": false,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": null
+      }
+    },
+    {
+      "id": "research_quant_01",
+      "query": "Compare the trade-offs between int8 quantization and full FP16 precision for local inference",
+      "passed": false,
+      "latency_seconds": 3.484,
+      "expected": {
+        "intent": "research",
+        "needs_web_search": false
+      },
+      "actual": {
+        "intent": "research",
+        "topic": "quantization",
+        "knowledge_level": "advanced",
+        "desired_depth": "deep",
+        "needs_example": false,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": true,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": "Can you provide more details on the trade-offs between int8 quantization and full FP16 precision for local inference?"
+      }
+    },
+    {
+      "id": "creative_haiku_01",
+      "query": "Write a funny haiku about debugging code at 2 AM",
+      "passed": true,
+      "latency_seconds": 3.788,
+      "expected": {
+        "intent": "creative",
+        "needs_web_search": false,
+        "needs_code": false
+      },
+      "actual": {
+        "intent": "creative",
+        "topic": "haiku",
+        "knowledge_level": "beginner",
+        "desired_depth": "normal",
+        "needs_example": true,
+        "needs_analogy": false,
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": "Can you provide an example of a haiku about debugging code at 2 AM?"
+      }
+    }
+  ]
+}
