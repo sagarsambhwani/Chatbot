@@ -1,18 +1,18 @@
 {
-  "timestamp": "20261112_191556",
+  "timestamp": "20261112_200642",
   "model": "qwen2.5:1.5b",
-  "overall_accuracy_percent": 86.8,
-  "intent_accuracy_percent": 90.9,
+  "overall_accuracy_percent": 84.2,
+  "intent_accuracy_percent": 81.8,
   "web_search_accuracy_percent": 83.3,
   "rag_accuracy_percent": 90.0,
   "code_accuracy_percent": 80.0,
-  "average_latency_seconds": 3.447,
+  "average_latency_seconds": 2.37,
   "cases": [
     {
       "id": "code_01",
       "query": "Write a Python function to compute Fibonacci numbers using dynamic programming",
       "passed": true,
-      "latency_seconds": 4.754,
+      "latency_seconds": 2.119,
       "expected": {
         "intent": "coding",
         "needs_code": true,
@@ -37,7 +37,7 @@
       "id": "fact_01",
       "query": "What is the capital of Canada?",
       "passed": true,
-      "latency_seconds": 3.495,
+      "latency_seconds": 2.208,
       "expected": {
         "intent": "factual",
         "desired_depth": "brief",
@@ -47,7 +47,7 @@
       },
       "actual": {
         "intent": "factual",
-        "topic": "Canada",
+        "topic": "geography",
         "knowledge_level": "beginner",
         "desired_depth": "normal",
         "needs_example": false,
@@ -63,7 +63,7 @@
       "id": "web_price_01",
       "query": "What is the current price of Bitcoin today?",
       "passed": false,
-      "latency_seconds": 3.208,
+      "latency_seconds": 2.318,
       "expected": {
         "intent": "factual",
         "needs_web_search": true,
@@ -87,7 +87,7 @@
       "id": "web_weather_01",
       "query": "What is the weather like in Tokyo right now?",
       "passed": true,
-      "latency_seconds": 3.957,
+      "latency_seconds": 2.501,
       "expected": {
         "intent": "factual",
         "needs_web_search": true,
@@ -104,14 +104,14 @@
         "needs_web_search": true,
         "needs_rag": false,
         "needs_clarification": false,
-        "clarification_question": "Do you want the current weather in Tokyo, Japan, or a specific location within Tokyo?"
+        "clarification_question": null
       }
     },
     {
       "id": "trick_current_01",
       "query": "In physics, how does alternating current differ from direct current?",
       "passed": true,
-      "latency_seconds": 2.935,
+      "latency_seconds": 1.955,
       "expected": {
         "intent": "conceptual_learning",
         "needs_web_search": false,
@@ -122,32 +122,8 @@
         "topic": "physics",
         "knowledge_level": "advanced",
         "desired_depth": "deep",
-        "needs_example": false,
-        "needs_analogy": false,
-        "needs_code": false,
-        "needs_web_search": false,
-        "needs_rag": false,
-        "needs_clarification": false,
-        "clarification_question": "Can you provide an example of alternating current and direct current?"
-      }
-    },
-    {
-      "id": "concept_transformer_01",
-      "query": "Explain how the self-attention mechanism works in transformers",
-      "passed": true,
-      "latency_seconds": 2.494,
-      "expected": {
-        "intent": "conceptual_learning",
-        "needs_web_search": false,
-        "needs_rag": false
-      },
-      "actual": {
-        "intent": "conceptual_learning",
-        "topic": "self-attention mechanism",
-        "knowledge_level": "advanced",
-        "desired_depth": "deep",
         "needs_example": true,
-        "needs_analogy": true,
+        "needs_analogy": false,
         "needs_code": false,
         "needs_web_search": false,
         "needs_rag": false,
@@ -156,10 +132,34 @@
       }
     },
     {
+      "id": "concept_transformer_01",
+      "query": "Explain how the self-attention mechanism works in transformers",
+      "passed": false,
+      "latency_seconds": 2.442,
+      "expected": {
+        "intent": "conceptual_learning",
+        "needs_web_search": false,
+        "needs_rag": false
+      },
+      "actual": {
+        "intent": "technical_help",
+        "topic": "transformers",
+        "knowledge_level": "advanced",
+        "desired_depth": "deep",
+        "needs_example": true,
+        "needs_analogy": true,
+        "needs_code": false,
+        "needs_web_search": false,
+        "needs_rag": false,
+        "needs_clarification": false,
+        "clarification_question": "Can you provide an example of how self-attention works in a transformer model?"
+      }
+    },
+    {
       "id": "troubleshoot_flask_01",
       "query": "My Flask app gives KeyError: 'username' when parsing request.json. How do I debug it?",
       "passed": false,
-      "latency_seconds": 2.72,
+      "latency_seconds": 2.472,
       "expected": {
         "intent": "troubleshooting",
         "needs_code": true,
@@ -177,14 +177,14 @@
         "needs_web_search": false,
         "needs_rag": false,
         "needs_clarification": false,
-        "clarification_question": null
+        "clarification_question": "Can you provide more details about the request object and the expected format of the JSON data?"
       }
     },
     {
       "id": "rag_specs_01",
       "query": "What GPU specifications are written in the uploaded welcome guide?",
       "passed": false,
-      "latency_seconds": 3.597,
+      "latency_seconds": 2.571,
       "expected": {
         "needs_rag": true,
         "needs_web_search": false
@@ -200,14 +200,14 @@
         "needs_web_search": true,
         "needs_rag": false,
         "needs_clarification": false,
-        "clarification_question": "Can you please provide the specific page number or section where the GPU specifications are mentioned in the welcome guide?"
+        "clarification_question": "Can you please provide the specific page or section in the welcome guide where the GPU specifications are written?"
       }
     },
     {
       "id": "casual_greeting_01",
       "query": "Hello! Good morning, how are you?",
       "passed": true,
-      "latency_seconds": 3.64,
+      "latency_seconds": 2.409,
       "expected": {
         "intent": "casual",
         "desired_depth": "brief",
@@ -220,7 +220,7 @@
         "topic": "greeting",
         "knowledge_level": "beginner",
         "desired_depth": "normal",
-        "needs_example": false,
+        "needs_example": true,
         "needs_analogy": false,
         "needs_code": false,
         "needs_web_search": false,
@@ -233,7 +233,7 @@
       "id": "casual_thanks_01",
       "query": "Thanks a lot for your help!",
       "passed": true,
-      "latency_seconds": 3.298,
+      "latency_seconds": 2.711,
       "expected": {
         "intent": "casual",
         "desired_depth": "brief",
@@ -251,14 +251,14 @@
         "needs_web_search": false,
         "needs_rag": false,
         "needs_clarification": false,
-        "clarification_question": null
+        "clarification_question": "Is there anything else you would like to say, or is there anything specific you need help with?"
       }
     },
     {
       "id": "research_quant_01",
       "query": "Compare the trade-offs between int8 quantization and full FP16 precision for local inference",
       "passed": false,
-      "latency_seconds": 3.484,
+      "latency_seconds": 2.156,
       "expected": {
         "intent": "research",
         "needs_web_search": false
@@ -272,16 +272,16 @@
         "needs_analogy": false,
         "needs_code": false,
         "needs_web_search": true,
-        "needs_rag": false,
+        "needs_rag": true,
         "needs_clarification": false,
-        "clarification_question": "Can you provide more details on the trade-offs between int8 quantization and full FP16 precision for local inference?"
+        "clarification_question": null
       }
     },
     {
       "id": "creative_haiku_01",
       "query": "Write a funny haiku about debugging code at 2 AM",
       "passed": true,
-      "latency_seconds": 3.788,
+      "latency_seconds": 2.58,
       "expected": {
         "intent": "creative",
         "needs_web_search": false,
