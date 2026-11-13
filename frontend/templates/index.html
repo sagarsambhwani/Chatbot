@@ -765,6 +765,13 @@
                   if (citationsListEl) citationsListEl.innerHTML = citationHtml || '<div>Direct generation (No external sources needed)</div>';
                 }
 
+                // 1b. Status update (e.g. "Searching the web...")
+                else if (event.type === 'status') {
+                  if (stepLabelEl) {
+                    stepLabelEl.innerHTML = `<i class="fa-solid fa-compass fa-spin text-[10px] mr-1 text-linen-muted"></i> ${event.message}`;
+                  }
+                }
+
                 // 2. Token: Stream in real-time
                 else if (event.type === 'token') {
                   accumulatedText += event.token;

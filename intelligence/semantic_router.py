@@ -1,6 +1,7 @@
 import time
 import logging
 import math
+import re
 from typing import List, Dict, Optional, Any
 from intelligence.schemas import ConversationAnalysis
 from ai_infra.llm_client import OllamaClient
@@ -36,7 +37,21 @@ class SemanticRouter:
             "latest breaking news today",
             "current score of the game right now",
             "today's currency exchange rate USD to INR",
-            "what is the weather like outside right now"
+            "what is the weather like outside right now",
+            "who won the cricket match yesterday sports score",
+            "who is the current prime minister or president",
+            "latest news updates and announcements",
+            "do a web search on this topic online",
+            "search the web for latest information",
+            "look this up online on google",
+            "search online for this query"
+        ],
+        "technical_concepts": [
+            "explain Kafka and Flink streaming architecture",
+            "how does Transformer self attention and flash attention work",
+            "deep learning neural network architectures and models",
+            "economic inflation monetary policy and interest rates",
+            "distributed database consensus raft and paxos protocols"
         ],
         "rag_docs": [
             "in the uploaded welcome guide",
@@ -138,6 +153,13 @@ class SemanticRouter:
                 needs_clarification=False
             )
 
+        # 0. Check for explicit search command directives
+        explicit_search = bool(re.search(
+            r"\b(do\s+(a\s+)?web\s+search|search\s+(the\s+)?web|search\s+online|look\s+(this\s+)?up\s+online|google\s+(this|it)|browse\s+(the\s+)?web)\b",
+            clean_msg,
+            re.IGNORECASE
+        ))
+
         # 1. Compute query embedding (~40ms on GPU)
         q_emb = self.client.get_embedding(clean_msg)
         if not q_emb:
@@ -150,7 +172,7 @@ class SemanticRouter:
                 needs_example=False,
                 needs_analogy=False,
                 needs_code=False,
-                needs_web_search=False,
+                needs_web_search=explicit_search,
                 needs_rag=False,
                 needs_clarification=False
             )
@@ -159,14 +181,6 @@ class SemanticRouter:
         scores: Dict[str, float] = {}
         for cat in self.EXEMPLARS.keys():
             scores[cat] = self._get_max_similarity(q_emb, cat)
-
-        # 3. Tool thresholding
-        # Web search requires real-time volatile intent
-        needs_web = scores.get("web_search", 0.0) >= 0.65
-        # Document RAG requires high semantic closeness to doc/list references
-        needs_rag = scores.get("rag_docs", 0.0) >= 0.58
-        # Code detection
-        needs_code = scores.get("coding", 0.0) >= 0.58
 
         # Determine primary intent
         intent_candidates = [
@@ -185,11 +199,31 @@ class SemanticRouter:
         else:
             intent = "factual"
 
+        # 3. Tool thresholding
+        web_score = scores.get("web_search", 0.0)
+        tech_score = scores.get("technical_concepts", 0.0)
+
+        # Web search triggers:
+        # a) Explicit user search directive
+        # b) Live volatile web data (prices, weather, news, scores)
+        # c) In-depth technical/economic architectures needing fast factual grounding
+        needs_web = (
+            explicit_search
+            or (web_score >= 0.60)
+            or (tech_score >= 0.58 and intent in ("research", "conceptual_learning", "factual"))
+        )
+
+        # Document RAG requires high semantic closeness to doc/list references
+        needs_rag = scores.get("rag_docs", 0.0) >= 0.58
+        # Code detection
+        needs_code = scores.get("coding", 0.0) >= 0.58
+
         # Special case: if query is very short and matches casual strongly
         words = clean_msg.split()
         if len(words) <= 5 and scores.get("casual", 0.0) >= 0.44:
             intent = "casual"
-            needs_web = False
+            if not explicit_search:
+                needs_web = False
             needs_rag = False
 
         # Desired depth
@@ -216,7 +250,7 @@ class SemanticRouter:
 
         logger.info(
             f"Semantic Router (GPU): intent='{analysis.intent}', "
-            f"web={analysis.needs_web_search} ({scores.get('web_search',0.0):.2f}), "
+            f"web={analysis.needs_web_search} (explicit={explicit_search}, web_sim={web_score:.2f}, tech_sim={tech_score:.2f}), "
             f"rag={analysis.needs_rag} ({scores.get('rag_docs',0.0):.2f}), "
             f"code={analysis.needs_code}"
         )

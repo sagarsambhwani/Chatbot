@@ -39,49 +39,13 @@ class LocalAssistant:
             "Answer the user's actual question clearly, accurately, and naturally."
         )
 
-    def _prepare_messages(
+    def _build_messages(
         self,
         user_prompt: str,
-        chat_history: list = None,
-        use_web: bool = True,
-        use_rag: bool = True
-    ) -> Tuple[List[Dict[str, str]], List[Dict], float, List[Dict], float, float, ConversationAnalysis, ResponsePlan, float]:
-        t_start = time.time()
-
-        # 1. Conversation Analyzer (Structured LLM call, temp 0)
-        t_analyzer_start = time.time()
-        analysis = self.analyzer.analyze_sync(user_prompt, history=chat_history)
-        analyzer_time = round(time.time() - t_analyzer_start, 3)
-
-        # 2. Deterministic Response Planner (Zero LLM calls)
-        plan = self.planner.create_plan(analysis)
-
-        # 3. Tool Routing Policy (Analyzer recommendations as policy input; respect caller overrides)
-        route_web = bool(use_web and analysis.needs_web_search)
-        route_rag = bool(use_rag and (analysis.needs_rag or len(self.rag.index) > 0))
-
-        web_results = []
-        search_time = 0.0
-        rag_chunks = []
-        rag_time = 0.0
-        contexts = []
-
-        if route_rag:
-            t_rag_start = time.time()
-            min_score = 0.40 if analysis.needs_rag else 0.48
-            rag_chunks = self.rag.search(user_prompt, top_k=3, min_score=min_score)
-            rag_time = round(time.time() - t_rag_start, 3)
-            rag_context = format_rag_context(rag_chunks)
-            if rag_context:
-                contexts.append(rag_context)
-
-        if route_web:
-            web_results, search_time = search_web(user_prompt, max_results=3)
-            web_context = format_web_context(web_results)
-            if web_context:
-                contexts.append(web_context)
-
-        # 4. Construct System Prompt using Generator Prompt + Response Plan directives
+        chat_history: Optional[list],
+        plan: ResponsePlan,
+        contexts: List[str]
+    ) -> List[Dict[str, str]]:
         plan_directives = [
             f"- Response Type: {plan.response_type}",
             f"- Target Length: {plan.target_length}",
@@ -125,7 +89,51 @@ class LocalAssistant:
             current_user_content = f"{full_context_block}\n\nUser Question: {user_prompt}"
 
         messages.append({"role": "user", "content": current_user_content})
+        return messages
 
+    def _prepare_messages(
+        self,
+        user_prompt: str,
+        chat_history: list = None,
+        use_web: bool = True,
+        use_rag: bool = True
+    ) -> Tuple[List[Dict[str, str]], List[Dict], float, List[Dict], float, float, ConversationAnalysis, ResponsePlan, float]:
+        t_start = time.time()
+
+        # 1. Conversation Analyzer (Structured LLM call, temp 0)
+        t_analyzer_start = time.time()
+        analysis = self.analyzer.analyze_sync(user_prompt, history=chat_history)
+        analyzer_time = round(time.time() - t_analyzer_start, 3)
+
+        # 2. Deterministic Response Planner (Zero LLM calls)
+        plan = self.planner.create_plan(analysis)
+
+        # 3. Tool Routing Policy (Analyzer recommendations as policy input; respect caller overrides)
+        route_web = bool(use_web and analysis.needs_web_search)
+        route_rag = bool(use_rag and (analysis.needs_rag or len(self.rag.index) > 0))
+
+        web_results = []
+        search_time = 0.0
+        rag_chunks = []
+        rag_time = 0.0
+        contexts = []
+
+        if route_rag:
+            t_rag_start = time.time()
+            min_score = 0.40 if analysis.needs_rag else 0.48
+            rag_chunks = self.rag.search(user_prompt, top_k=3, min_score=min_score)
+            rag_time = round(time.time() - t_rag_start, 3)
+            rag_context = format_rag_context(rag_chunks)
+            if rag_context:
+                contexts.append(rag_context)
+
+        if route_web:
+            web_results, search_time = search_web(user_prompt, max_results=3)
+            web_context = format_web_context(web_results)
+            if web_context:
+                contexts.append(web_context)
+
+        messages = self._build_messages(user_prompt, chat_history, plan, contexts)
         return messages, web_results, search_time, rag_chunks, rag_time, analyzer_time, analysis, plan, t_start
 
     def generate_response(
@@ -194,11 +202,45 @@ class LocalAssistant:
         use_rag: bool = True
     ) -> Generator[Dict[str, Any], None, None]:
         """Streaming generator yielding Server-Sent Events JSON objects."""
-        messages, web_results, search_time, rag_chunks, rag_time, analyzer_time, analysis, plan, t_start = (
-            self._prepare_messages(user_prompt, chat_history, use_web, use_rag)
-        )
+        t_start = time.time()
 
-        # 1. Yield retrieved sources & latencies immediately (do not leak internal planning JSON to user)
+        # 1. GPU Semantic Router (~40ms)
+        t_analyzer_start = time.time()
+        analysis = self.analyzer.analyze_sync(user_prompt, history=chat_history)
+        analyzer_time = round(time.time() - t_analyzer_start, 3)
+        plan = self.planner.create_plan(analysis)
+
+        route_web = bool(use_web and analysis.needs_web_search)
+        route_rag = bool(use_rag and (analysis.needs_rag or len(self.rag.index) > 0))
+
+        # Immediately indicate to the UI if web search is taking place
+        if route_web:
+            yield {"type": "status", "message": "Searching the web..."}
+
+        web_results = []
+        search_time = 0.0
+        rag_chunks = []
+        rag_time = 0.0
+        contexts = []
+
+        if route_rag:
+            t_rag_start = time.time()
+            min_score = 0.40 if analysis.needs_rag else 0.48
+            rag_chunks = self.rag.search(user_prompt, top_k=3, min_score=min_score)
+            rag_time = round(time.time() - t_rag_start, 3)
+            rag_context = format_rag_context(rag_chunks)
+            if rag_context:
+                contexts.append(rag_context)
+
+        if route_web:
+            web_results, search_time = search_web(user_prompt, max_results=3)
+            web_context = format_web_context(web_results)
+            if web_context:
+                contexts.append(web_context)
+
+        messages = self._build_messages(user_prompt, chat_history, plan, contexts)
+
+        # 2. Yield retrieved sources & latencies immediately (do not leak internal planning JSON to user)
         yield {
             "type": "metadata",
             "web_sources": web_results,
