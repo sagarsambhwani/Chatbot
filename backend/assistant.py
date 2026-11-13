@@ -8,7 +8,7 @@ from backend.config import OLLAMA_BASE_URL, LLM_MODEL, BASE_DIR
 from ai_infra.llm_client import OllamaClient
 from ai_infra.search_engine import search_web, format_web_context
 from ai_infra.rag_engine import RAGEngine, format_rag_context
-from intelligence.analyzer import ConversationAnalyzer
+from intelligence.decision_engine import DecisionEngine
 from intelligence.response_planner import ResponsePlanner
 from intelligence.schemas import ConversationAnalysis, ResponsePlan
 
@@ -21,7 +21,7 @@ class LocalAssistant:
     def __init__(self, llm_client: Optional[OllamaClient] = None, rag_engine: Optional[RAGEngine] = None):
         self.client = llm_client or OllamaClient()
         self.rag = rag_engine or RAGEngine()
-        self.analyzer = ConversationAnalyzer(model=LLM_MODEL, llm_client=self.client)
+        self.analyzer = DecisionEngine.get_instance()
         self.planner = ResponsePlanner()
         self.generator_prompt = self._load_generator_prompt()
 
