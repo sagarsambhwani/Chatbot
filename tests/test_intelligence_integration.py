@@ -8,7 +8,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from ai_infra.llm_client import OllamaClient
-from intelligence.analyzer import ConversationAnalyzer
+from intelligence.semantic_router import SemanticRouter
 from intelligence.response_planner import ResponsePlanner
 from backend.assistant import LocalAssistant
 

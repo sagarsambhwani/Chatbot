@@ -13,7 +13,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from ai_infra.llm_client import OllamaClient
-from intelligence.analyzer import ConversationAnalyzer
+from intelligence.semantic_router import SemanticRouter
 
 console = Console()
 
@@ -31,7 +31,7 @@ def run_benchmark():
         console.print("[bold red]Error: Ollama service is not reachable at http://127.0.0.1:11434[/bold red]")
         return
 
-    analyzer = ConversationAnalyzer(model=client.llm_model, llm_client=client)
+    analyzer = SemanticRouter.get_instance(client=client)
 
     console.print(Panel(
         f"[bold cyan]Local AI Voice Assistant - Prompt & Intelligence Benchmark[/bold cyan]\n"

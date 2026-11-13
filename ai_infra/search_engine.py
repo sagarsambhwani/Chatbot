@@ -27,39 +27,6 @@ def clean_search_query(query: str) -> str:
     return cleaned if cleaned else query.strip()
 
 
-# Backward compatibility patterns
-SKIP_SEARCH_PATTERNS = [
-    r"^(hi|hello|hey|greetings|howdy|good\s+(morning|afternoon|evening))\b",
-    r"\b(who\s+are\s+you|what(\'s|\s+is)\s+your\s+name|what\s+are\s+you|who(\'s|\s+is)\s+this|introduce\s+yourself)\b",
-    r"\b(how\s+are\s+you|how\s+are\s+you\s+doing|how\'s\s+it\s+going|what\'s\s+up)\b",
-    r"\b(thank\s+you|thanks|bye|goodbye|see\s+you)\b",
-    r"\b((tell|give)\s+(me\s+)?(a\s+)?([\w\s]+\s+)?joke|make\s+me\s+laugh)\b",
-    r"^(write\s+a\s+(python\s+|javascript\s+|c\+\+\s+)?(function|script|code|poem|story|essay))\b",
-    r"^(calculate|solve|what\s+is\s+\d+[\+\-\*\/])\b"
-]
-
-FORCE_SEARCH_PATTERNS = [
-    r"\b(weather|temperature|forecast|rain|climate)\b",
-    r"\b(current|currently|now|latest|recent|news|headlines)\b",
-    r"\b(price|stock|crypto|bitcoin|market|share\s+price)\b",
-    r"\b(who\s+won|score|match|game|election|championship)\b",
-    r"\b(search\s+for|search\s+web|look\s+up|google)\b"
-]
-
-def should_search_web(query: str) -> bool:
-    """Classify whether the user query needs web search (legacy helper)."""
-    q = query.strip().lower()
-    if len(q) < 4:
-        return False
-    for pat in FORCE_SEARCH_PATTERNS:
-        if re.search(pat, q):
-            return True
-    for pat in SKIP_SEARCH_PATTERNS:
-        if re.search(pat, q):
-            return False
-    return True
-
-
 class HybridSearchEngine:
     """
     Tiered Low-Latency Grounding Engine:
@@ -160,12 +127,9 @@ class HybridSearchEngine:
             logger.warning(f"DDGS text search timed out/failed: {e}")
             return []
 
-    def search(self, query: str, max_results: int = 3, force: bool = True) -> Tuple[List[Dict], float]:
+    def search(self, query: str, max_results: int = 3) -> Tuple[List[Dict], float]:
         clean_q = clean_search_query(query)
         if not clean_q:
-            return [], 0.0
-
-        if not force and not should_search_web(clean_q):
             return [], 0.0
 
         # 1. Check in-memory cache (0.000s)
@@ -207,7 +171,7 @@ class HybridSearchEngine:
 _default_search_engine = HybridSearchEngine()
 
 def search_web(query: str, max_results: int = 3) -> Tuple[List[Dict], float]:
-    return _default_search_engine.search(query, max_results=max_results, force=True)
+    return _default_search_engine.search(query, max_results=max_results)
 
 def format_web_context(results: List[Dict]) -> str:
     if not results:

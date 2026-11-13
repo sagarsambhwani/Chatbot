@@ -1,5 +1,6 @@
 import os
 import sys
+import io
 import time
 import json
 import subprocess
@@ -161,17 +162,9 @@ def transcribe():
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files["audio"]
-    temp_path = os.path.join(BASE_DIR, "temp_recording.wav")
-    audio_file.save(temp_path)
-
-    text, stt_time = stt.transcribe(temp_path)
-
-    # Clean up temp recording
-    try:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-    except Exception:
-        pass
+    # Transcribe directly from in-memory stream (zero disk I/O)
+    audio_stream = io.BytesIO(audio_file.read())
+    text, stt_time = stt.transcribe(audio_stream)
 
     return jsonify({"text": text, "stt_seconds": stt_time})
 

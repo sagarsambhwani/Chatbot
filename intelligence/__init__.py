@@ -11,14 +11,14 @@ from intelligence.schemas import (
     ExplanationStyle,
     TargetLength
 )
-from intelligence.analyzer import ConversationAnalyzer
+from intelligence.semantic_router import SemanticRouter
 from intelligence.response_planner import ResponsePlanner
 
 __all__ = [
     "ConversationAnalysis",
     "ResponsePlan",
     "IntelligenceResult",
-    "ConversationAnalyzer",
+    "SemanticRouter",
     "ResponsePlanner",
     "IntentType",
     "KnowledgeLevel",

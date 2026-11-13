@@ -46,31 +46,11 @@ class LocalAssistant:
         plan: ResponsePlan,
         contexts: List[str]
     ) -> List[Dict[str, str]]:
-        plan_directives = [
-            f"- Response Type: {plan.response_type}",
-            f"- Target Length: {plan.target_length}",
-            f"- Explanation Style: {plan.explanation_style}",
-            f"- Opening Strategy: {plan.opening_strategy}"
-        ]
-        if plan.sections:
-            plan_directives.append(f"- Recommended Progression: {', '.join(plan.sections)}")
-        if plan.include_example:
-            plan_directives.append("- Include at least one practical, illustrative example.")
-        if plan.include_analogy:
-            plan_directives.append("- Use an intuitive analogy to clarify the concept.")
-        if plan.include_code:
-            plan_directives.append("- Include clean, well-commented code implementation.")
-        if plan.include_caveats:
-            plan_directives.append("- Highlight important trade-offs, caveats, or limitations.")
-
-        system_instructions = (
-            f"{self.generator_prompt}\n\n"
-            f"[RESPONSE BLUEPRINT (GUIDANCE)]\n"
-            f"{chr(10).join(plan_directives)}\n\n"
-            "CITATION INSTRUCTIONS:\n"
-            "- When citing web search results, use markdown links: [Web: Title](URL)\n"
-            "- When citing document knowledge, use: [Doc: filename.ext]"
-        )
+        system_instructions = self.generator_prompt
+        if plan.target_length == "short":
+            system_instructions += "\nGuidance: Keep the answer concise and direct (1-3 sentences)."
+        elif plan.include_code:
+            system_instructions += "\nGuidance: Include a clean, well-commented code implementation."
 
         messages = [{"role": "system", "content": system_instructions}]
 

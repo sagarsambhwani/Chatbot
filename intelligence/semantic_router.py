@@ -182,7 +182,7 @@ class SemanticRouter:
         for cat in self.EXEMPLARS.keys():
             scores[cat] = self._get_max_similarity(q_emb, cat)
 
-        # Determine primary intent
+        # Determine primary intent via argmax
         intent_candidates = [
             ("casual", scores.get("casual", 0.0)),
             ("coding", scores.get("coding", 0.0)),
@@ -190,43 +190,27 @@ class SemanticRouter:
             ("conceptual_learning", scores.get("conceptual_learning", 0.0)),
             ("research", scores.get("research", 0.0)),
             ("creative", scores.get("creative", 0.0)),
+            ("factual", scores.get("web_search", 0.0)),
         ]
         intent_candidates.sort(key=lambda x: x[1], reverse=True)
         top_intent, top_score = intent_candidates[0]
-
-        if top_score >= 0.52:
-            intent = top_intent
-        else:
-            intent = "factual"
+        intent = top_intent if top_score >= 0.50 else "factual"
 
         # 3. Tool thresholding
         web_score = scores.get("web_search", 0.0)
         tech_score = scores.get("technical_concepts", 0.0)
 
-        # Web search triggers:
-        # a) Explicit user search directive
-        # b) Live volatile web data (prices, weather, news, scores)
-        # c) In-depth technical/economic architectures needing fast factual grounding
         needs_web = (
             explicit_search
-            or (web_score >= 0.60)
+            or (web_score >= 0.60 and intent != "casual")
             or (tech_score >= 0.58 and intent in ("research", "conceptual_learning", "factual"))
         )
 
-        # Document RAG requires high semantic closeness to doc/list references
-        needs_rag = scores.get("rag_docs", 0.0) >= 0.58
-        # Code detection
-        needs_code = scores.get("coding", 0.0) >= 0.58
-
-        # Special case: if query is very short and matches casual strongly
-        words = clean_msg.split()
-        if len(words) <= 5 and scores.get("casual", 0.0) >= 0.44:
-            intent = "casual"
-            if not explicit_search:
-                needs_web = False
-            needs_rag = False
+        needs_rag = (scores.get("rag_docs", 0.0) >= 0.55) and (intent != "casual")
+        needs_code = (scores.get("coding", 0.0) >= 0.55) or (intent == "coding")
 
         # Desired depth
+        words = clean_msg.split()
         if intent in ("casual", "factual"):
             depth = "brief" if len(words) < 12 else "normal"
         elif intent in ("research", "conceptual_learning"):

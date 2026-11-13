@@ -27,15 +27,15 @@ class SpeechToText:
             logger.warning(f"Error loading on preferred device: {e}. Fallback to CPU int8.")
             self.model = WhisperModel("base", device="cpu", compute_type="int8")
 
-    def transcribe(self, audio_file_path: str) -> tuple:
-        """Transcribe audio file to text. Returns (transcribed_text, elapsed_seconds)."""
-        if not os.path.exists(audio_file_path):
+    def transcribe(self, audio_input) -> tuple:
+        """Transcribe audio file path or in-memory binary stream to text. Returns (transcribed_text, elapsed_seconds)."""
+        if isinstance(audio_input, str) and not os.path.exists(audio_input):
             return "", 0.0
 
         t0 = time.time()
         try:
             segments, info = self.model.transcribe(
-                audio_file_path,
+                audio_input,
                 beam_size=3,
                 language="en",
                 condition_on_previous_text=False
