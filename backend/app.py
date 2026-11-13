@@ -87,16 +87,21 @@ def chat_stream():
                 full_answer = event["answer"]
                 final_latencies = event.get("latencies", {})
                 final_latencies["stt_seconds"] = stt_seconds
+                final_latencies["tts_seconds"] = 0.0
+                event["audio_url"] = ""
+                event["latencies"] = final_latencies
+                yield f"data: {json.dumps(event)}\n\n"
 
-                # Synthesize TTS audio once text is complete
-                audio_url = ""
-                tts_time = 0.0
+                # Async TTS: synthesize after done event without blocking the text response!
                 if enable_tts and full_answer:
                     audio_url, tts_time = tts.synthesize(full_answer)
-
-                final_latencies["tts_seconds"] = tts_time
-                event["audio_url"] = audio_url
-                event["latencies"] = final_latencies
+                    audio_event = {
+                        "type": "audio",
+                        "audio_url": audio_url,
+                        "tts_seconds": tts_time
+                    }
+                    yield f"data: {json.dumps(audio_event)}\n\n"
+                return
 
             yield f"data: {json.dumps(event)}\n\n"
 
@@ -140,6 +145,15 @@ def chat():
         "latencies": latencies,
         "vram": get_system_vram()
     })
+
+@app.route("/api/tts", methods=["POST"])
+def synthesize_tts():
+    data = request.json or {}
+    text = data.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+    audio_url, tts_time = tts.synthesize(text)
+    return jsonify({"audio_url": audio_url, "tts_seconds": tts_time})
 
 @app.route("/api/transcribe", methods=["POST"])
 def transcribe():

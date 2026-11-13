@@ -785,6 +785,7 @@
                   stepLabelEl.innerHTML = `Worked for ${totalSecs}s`;
 
                   // Render Action Buttons
+                  const ttsEnabled = document.getElementById('toggle-tts').checked;
                   let actionHtml = `
                     <button onclick="copyText(this, ${JSON.stringify(finalReply)})" class="hover:text-linen-text transition flex items-center gap-1" title="Copy response">
                       <i class="fa-regular fa-copy text-[11px]"></i> Copy
@@ -793,13 +794,20 @@
 
                   if (event.audio_url) {
                     actionHtml += `
-                      <button onclick="playAudio('${event.audio_url}')" class="hover:text-linen-text transition flex items-center gap-1" title="Replay voice">
+                      <button onclick="playAudio('${event.audio_url}')" class="btn-read-aloud hover:text-linen-text transition flex items-center gap-1" title="Replay voice">
                         <i class="fa-solid fa-volume-high text-[11px]"></i> Read aloud
                       </button>
                     `;
-                    if (document.getElementById('toggle-tts').checked) {
+                    if (ttsEnabled) {
                       playAudio(event.audio_url);
                     }
+                  } else if (ttsEnabled) {
+                    // Placeholder while async TTS generates
+                    actionHtml += `
+                      <button class="btn-read-aloud text-linen-muted/60 flex items-center gap-1 transition" title="Voice synthesizing in background...">
+                        <i class="fa-solid fa-spinner fa-spin text-[10px]"></i> Voice readying...
+                      </button>
+                    `;
                   }
 
                   if (event.latencies) {
@@ -812,6 +820,22 @@
                   }
 
                   actionsEl.innerHTML = actionHtml;
+                }
+
+                // 3b. Async Audio Ready
+                else if (event.type === 'audio') {
+                  if (event.audio_url) {
+                    const readAloudBtn = actionsEl.querySelector('.btn-read-aloud');
+                    if (readAloudBtn) {
+                      readAloudBtn.setAttribute('onclick', `playAudio('${event.audio_url}')`);
+                      readAloudBtn.className = "btn-read-aloud hover:text-linen-text transition flex items-center gap-1 cursor-pointer";
+                      readAloudBtn.title = "Replay voice";
+                      readAloudBtn.innerHTML = `<i class="fa-solid fa-volume-high text-[11px]"></i> Read aloud`;
+                    }
+                    if (document.getElementById('toggle-tts').checked) {
+                      playAudio(event.audio_url);
+                    }
+                  }
                 }
 
                 // 4. Error
