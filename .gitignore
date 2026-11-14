@@ -16,7 +16,10 @@ voices/*.json
 static/audio/*.wav
 !static/audio/.gitkeep
 
-# Local vector cache
+# Local database & cache files
+data/*.db
+data/router_exemplars.json
+data/audio_cache/
 data/vector_index.json
 
 # Environment / OS / Editor files

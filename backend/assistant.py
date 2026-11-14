@@ -220,9 +220,10 @@ class LocalAssistant:
 
         messages = self._build_messages(user_prompt, chat_history, plan, contexts)
 
-        # 2. Yield retrieved sources & latencies immediately (do not leak internal planning JSON to user)
+        # 2. Yield retrieved sources & latencies immediately
         yield {
             "type": "metadata",
+            "analysis": analysis.model_dump(),
             "web_sources": web_results,
             "doc_sources": rag_chunks,
             "latencies": {

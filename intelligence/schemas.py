@@ -147,3 +147,59 @@ class IntelligenceResult(BaseModel):
 
     analysis: ConversationAnalysis
     plan: ResponsePlan
+
+
+# ==========================================
+# API Request & Response Schemas for FastAPI
+# ==========================================
+
+class ChatRequest(BaseModel):
+    """Payload sent by the frontend for streaming or batch chat."""
+    message: str = Field(..., description="User prompt text")
+    session_id: Optional[str] = Field(None, description="UUID of the chat session thread")
+    use_web: bool = Field(True, description="Whether web search is permitted")
+    use_rag: bool = Field(True, description="Whether document retrieval is permitted")
+    enable_tts: bool = Field(True, description="Whether to synthesize speech for the answer")
+    stt_seconds: float = Field(0.0, description="Audio transcription duration in seconds")
+
+
+class SessionCreateRequest(BaseModel):
+    """Request to create a new session thread."""
+    title: Optional[str] = Field("New Chat", description="Title for the conversation thread")
+
+
+class SessionTitleUpdateRequest(BaseModel):
+    """Request to rename an existing session."""
+    title: str = Field(..., description="New title for the session")
+
+
+class SessionResponse(BaseModel):
+    """Session thread metadata."""
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
+class MessageResponse(BaseModel):
+    """Individual conversation turn record."""
+    id: int
+    session_id: str
+    role: str
+    content: str
+    intent: Optional[str] = None
+    needs_web_search: bool = False
+    needs_rag: bool = False
+    needs_code: bool = False
+    desired_depth: Optional[str] = None
+    audio_url: str = ""
+    latencies: Optional[dict] = None
+    created_at: str
+
+
+class SystemStatusResponse(BaseModel):
+    """Real-time system health and model status."""
+    vram: str
+    llm_model: str
+    embed_model: str
+    rag_docs_count: int

@@ -1,3 +1,5 @@
+import os
+import json
 import time
 import logging
 import math
@@ -5,7 +7,7 @@ import re
 from typing import List, Dict, Optional, Any
 from intelligence.schemas import ConversationAnalysis
 from ai_infra.llm_client import OllamaClient
-from backend.config import OLLAMA_BASE_URL, EMBED_MODEL
+from backend.config import OLLAMA_BASE_URL, EMBED_MODEL, DATA_ROOT
 
 logger = logging.getLogger("SemanticRouter")
 
@@ -114,7 +116,22 @@ class SemanticRouter:
         return cls._instance
 
     def _build_exemplar_index(self):
-        """Pre-compute embeddings for all category exemplars once at startup."""
+        """Pre-compute or load cached embeddings for all category exemplars."""
+        cache_path = os.path.join(DATA_ROOT, "router_exemplars.json")
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    self.exemplar_vectors = json.load(f)
+                total = sum(len(v) for v in self.exemplar_vectors.values())
+                logger.info(f"Loaded {total} exemplar embeddings from cache ({cache_path}).")
+                return
+            except Exception as e:
+                logger.warning(f"Could not load exemplar cache: {e}. Recomputing...")
+
+        if not self.client.is_healthy():
+            logger.warning("Ollama is currently offline; deferring exemplar pre-computation until Ollama starts.")
+            return
+
         total = 0
         t0 = time.time()
         for category, texts in self.EXEMPLARS.items():
@@ -124,6 +141,17 @@ class SemanticRouter:
                 if emb:
                     self.exemplar_vectors[category].append(emb)
                     total += 1
+        
+        # Save to disk cache if any were computed
+        if total > 0:
+            try:
+                os.makedirs(DATA_ROOT, exist_ok=True)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(self.exemplar_vectors, f)
+                logger.info(f"Saved {total} exemplar embeddings to cache ({cache_path}).")
+            except Exception as e:
+                logger.warning(f"Could not save exemplar cache: {e}")
+
         logger.info(f"Semantic Router pre-computed {total} exemplar embeddings in {time.time()-t0:.2f}s.")
 
     def _get_max_similarity(self, q_emb: List[float], category: str) -> float:
@@ -139,6 +167,10 @@ class SemanticRouter:
     ) -> ConversationAnalysis:
         """Analyze message intent and tool requirements via GPU semantic embeddings."""
         clean_msg = (message or "").strip()
+
+        # Lazy-build exemplar index if not already built and Ollama is active
+        if not any(self.exemplar_vectors.values()) and self.client.is_healthy():
+            self._build_exemplar_index()
         if not clean_msg:
             return ConversationAnalysis(
                 intent="casual",

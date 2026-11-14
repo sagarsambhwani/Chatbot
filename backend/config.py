@@ -18,17 +18,20 @@ VOICES_DIR = os.path.join(BASE_DIR, "voices")
 PIPER_MODEL_PATH = os.path.join(VOICES_DIR, "en_US-lessac-medium.onnx")
 PIPER_CONFIG_PATH = os.path.join(VOICES_DIR, "en_US-lessac-medium.onnx.json")
 
-# Document / RAG Settings
-DATA_DIR = os.path.join(BASE_DIR, "data", "docs")
-VECTOR_INDEX_FILE = os.path.join(BASE_DIR, "data", "vector_index.json")
+# Database & Document Persistence Settings
+DATA_ROOT = os.path.join(BASE_DIR, "data")
+DB_PATH = os.path.join(DATA_ROOT, "app.db")
+DATA_DIR = os.path.join(DATA_ROOT, "docs")
+VECTOR_INDEX_FILE = os.path.join(DATA_ROOT, "vector_index.json")
+AUDIO_CACHE_DIR = os.path.join(DATA_ROOT, "audio_cache")
 
-# Frontend Directories
+# Frontend Directories (Legacy fallback support)
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
 STATIC_DIR = os.path.join(FRONTEND_DIR, "static")
-AUDIO_CACHE_DIR = os.path.join(STATIC_DIR, "audio")
 
 # Ensure required directories exist
+os.makedirs(DATA_ROOT, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(VOICES_DIR, exist_ok=True)
 os.makedirs(AUDIO_CACHE_DIR, exist_ok=True)
