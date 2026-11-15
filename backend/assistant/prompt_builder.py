@@ -27,19 +27,19 @@ def build_messages(
     if plan.target_length == "short":
         sys_inst += "\nGuidance: Keep the answer concise and direct (1-3 sentences)."
     elif plan.include_code:
-        sys_inst += "\nGuidance: Include a clean, well-commented code implementation."
+        sys_inst += "\nGuidance: Reason in <think>...</think>, then provide clean code."
+    elif plan.response_type in ("conceptual_explanation", "technical_solution"):
+        sys_inst += "\nGuidance: Reason in <think>...</think> before outputting the explanation."
 
     messages = [{"role": "system", "content": sys_inst}]
-
     if exemplar:
-        messages.append({"role": "user", "content": exemplar["user"]})
-        messages.append({"role": "assistant", "content": exemplar["assistant"]})
+        messages.extend([{"role": "user", "content": exemplar["user"]}, {"role": "assistant", "content": exemplar["assistant"]}])
 
     if chat_history:
-        for turn in chat_history[-6:]:
-            role, content = turn.get("role", "user"), turn.get("content", "").strip()
-            if role in ("user", "assistant") and content:
-                messages.append({"role": role, "content": content})
+        for t in chat_history[-6:]:
+            r, c = t.get("role", "user"), t.get("content", "").strip()
+            if r in ("user", "assistant") and c:
+                messages.append({"role": r, "content": c})
 
     content = f"{chr(10).join(contexts)}\n\nUser Question: {user_prompt}" if contexts else user_prompt
     messages.append({"role": "user", "content": content})

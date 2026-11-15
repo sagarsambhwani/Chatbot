@@ -7,13 +7,27 @@ interface MessageItemProps {
   isStreaming?: boolean;
 }
 
+function parseThinking(content: string) {
+  const match = content.match(/<think>([\s\S]*?)(?:<\/think>|$)/i);
+  if (!match) {
+    return { thought: null, answer: content, isThinking: false };
+  }
+  const thought = match[1].trim();
+  const hasClosed = /<\/think>/i.test(content);
+  const answer = content.replace(/<think>[\s\S]*?(?:<\/think>|$)/i, '').trim();
+  return { thought, answer, isThinking: !hasClosed };
+}
+
 export const MessageItem: React.FC<MessageItemProps> = ({ message, isStreaming = false }) => {
   const isUser = message.role === 'user';
   const [showDetails, setShowDetails] = useState(false);
+  const [showThought, setShowThought] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const { thought, answer, isThinking } = parseThinking(message.content || '');
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+    navigator.clipboard.writeText(answer || message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -47,7 +61,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isStreaming =
 
   // Assistant Message
   const hasLatencies = message.latencies && Object.keys(message.latencies).length > 0;
-  const rawHtml = marked.parse(message.content || '') as string;
+  const displayContent = answer || (isThinking ? '' : message.content || '');
+  const rawHtml = marked.parse(displayContent) as string;
 
   return (
     <div className="space-y-3 mb-6">
@@ -92,10 +107,34 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isStreaming =
         </div>
       )}
 
+      {/* Thought Process Scratchpad Accordion */}
+      {thought && (
+        <div className="mb-2">
+          <button
+            type="button"
+            onClick={() => setShowThought(!showThought)}
+            className="text-[11px] text-linen-muted hover:text-linen-text cursor-pointer select-none flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-linen-surfaceAlt/70 border border-linen-border/70 transition"
+          >
+            <i className="fa-solid fa-brain text-[10px] text-amber-600"></i>
+            <span>Thought Process</span>
+            {isThinking && (
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse ml-0.5"></span>
+            )}
+            <i className={`fa-solid text-[8px] ml-1 ${showThought || isThinking ? 'fa-chevron-down' : 'fa-chevron-right'}`}></i>
+          </button>
+          {(showThought || isThinking) && (
+            <div className="mt-1.5 px-3.5 py-2 text-linen-muted bg-linen-surfaceAlt/40 border border-linen-border/60 rounded-xl font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+              {thought}
+              {isThinking && <span className="stream-cursor ml-1"></span>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Formatted Markdown Content */}
       <div className="prose-antigravity">
         <div dangerouslySetInnerHTML={{ __html: rawHtml }} />
-        {isStreaming && <span className="stream-cursor"></span>}
+        {isStreaming && !isThinking && <span className="stream-cursor"></span>}
       </div>
 
       {/* Action Buttons: Copy, Replay Audio, etc. */}
