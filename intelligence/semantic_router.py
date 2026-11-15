@@ -235,7 +235,7 @@ class SemanticRouter:
         needs_web = (
             explicit_search
             or (web_score >= 0.60 and intent != "casual")
-            or (tech_score >= 0.58 and intent in ("research", "conceptual_learning", "factual"))
+            or (tech_score >= 0.48 and intent in ("research", "conceptual_learning", "factual"))
         )
 
         needs_rag = (scores.get("rag_docs", 0.0) >= 0.55) and (intent != "casual")
