@@ -30,3 +30,7 @@ data/vector_index.json
 .idea/
 Thumbs.db
 .DS_Store
+
+# Frontend Node modules & build artifacts
+frontend/node_modules/
+frontend/dist/
