@@ -135,3 +135,4 @@ export const DocModal: React.FC<DocModalProps> = ({ isOpen, onClose, onDocsChang
     </div>
   );
 };
+
