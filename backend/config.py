@@ -13,8 +13,10 @@ WHISPER_MODEL = "base"
 WHISPER_DEVICE = "cpu"
 WHISPER_COMPUTE_TYPE = "int8"
 
-# Piper TTS Settings (Fast local neural voice on ONNX)
+# TTS Settings (Kokoro-82M neural & Piper fallback)
 VOICES_DIR = os.path.join(BASE_DIR, "voices")
+KOKORO_MODEL_PATH = os.path.join(VOICES_DIR, "kokoro", "kokoro-v1.0.onnx")
+KOKORO_VOICES_PATH = os.path.join(VOICES_DIR, "kokoro", "voices-v1.0.bin")
 PIPER_MODEL_PATH = os.path.join(VOICES_DIR, "en_US-lessac-medium.onnx")
 PIPER_CONFIG_PATH = os.path.join(VOICES_DIR, "en_US-lessac-medium.onnx.json")
 

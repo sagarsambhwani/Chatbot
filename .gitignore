@@ -9,9 +9,11 @@ __pycache__/
 *$py.class
 *.so
 
-# Voice model weights & outputs (can be downloaded via download_voice.py)
-voices/*.onnx
-voices/*.json
+# Voice model weights & outputs
+voices/**/*.onnx
+voices/**/*.json
+voices/**/*.bin
+voices/kokoro/
 *.wav
 static/audio/*.wav
 !static/audio/.gitkeep
