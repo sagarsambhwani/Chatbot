@@ -67,4 +67,5 @@ export type SSEEvent =
     | { type: 'token'; token: string; session_id?: string }
     | { type: 'done'; session_id: string; answer: string; latencies?: Latencies }
     | { type: 'audio'; session_id: string; audio_url: string; tts_seconds: number }
+    | { type: 'audio_chunk'; session_id: string; audio_url: string; chunk_index: number }
     | { type: 'error'; error: string; session_id?: string };

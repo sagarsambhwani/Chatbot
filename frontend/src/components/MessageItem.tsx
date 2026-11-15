@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { marked } from 'marked';
 import { Message } from '../types/chat';
+import { audioQueue } from '../services/audioQueue';
 
 interface MessageItemProps {
   message: Message;
@@ -34,6 +35,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isStreaming =
 
   const handlePlayAudio = () => {
     if (message.audio_url) {
+      audioQueue.stop();
       const audio = new Audio(message.audio_url);
       audio.play().catch((e) => console.log('Audio playback note:', e));
     }

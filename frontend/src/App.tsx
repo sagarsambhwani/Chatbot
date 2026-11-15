@@ -13,6 +13,7 @@ import {
   fetchSystemStatus,
 } from './services/api';
 import { streamChat } from './services/sse';
+import { audioQueue } from './services/audioQueue';
 
 export const App: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -56,6 +57,7 @@ export const App: React.FC = () => {
   };
 
   const selectSession = async (id: string) => {
+    audioQueue.stop();
     setActiveSessionId(id);
     try {
       const { messages } = await fetchSessionHistory(id);
@@ -67,6 +69,7 @@ export const App: React.FC = () => {
   };
 
   const handleNewChat = async () => {
+    audioQueue.stop();
     try {
       const newSession = await createSession();
       setSessions([newSession, ...sessions]);
@@ -131,6 +134,7 @@ export const App: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+    audioQueue.stop();
     setIsStreaming(true);
     setStreamStatus('');
     setUserHasScrolledUp(false);
@@ -192,6 +196,10 @@ export const App: React.FC = () => {
               return updated;
             });
             scrollToBottom(false);
+          } else if (event.type === 'audio_chunk') {
+            if (enableTts) {
+              audioQueue.enqueue(event.audio_url);
+            }
           } else if (event.type === 'audio') {
             setMessages((prev) => {
               const updated = [...prev];
@@ -200,8 +208,6 @@ export const App: React.FC = () => {
               }
               return updated;
             });
-            const audio = new Audio(event.audio_url);
-            audio.play().catch((e) => console.log('Audio autoplay prevented:', e));
           }
         }
       );
