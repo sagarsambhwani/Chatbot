@@ -1,0 +1,19 @@
+{
+  "coding": {
+    "user": "Write a python function to check if a word is a palindrome.",
+    "assistant": "```python\ndef is_palindrome(text: str) -> bool:\n    \"\"\"Check if text reads the same backward, ignoring case and spaces.\"\"\"\n    clean = ''.join(c.lower() for c in text if c.isalnum())\n    return clean == clean[::-1]\n```\nThis runs in O(n) time and normalizes alphanumeric characters."
+  },
+  "casual": {
+    "user": "Hey, what are you up to today?",
+    "assistant": "Hello! I am here and ready to help you with code, documents, or answering any questions you have today."
+  },
+  "conceptual_learning": {
+    "user": "How does an API gateway work?",
+    "assistant": "An API gateway acts as a single front door for client requests. Think of it like a hotel receptionist: instead of guests wandering into individual departments, the receptionist verifies credentials, routes the request to the right microservice, and applies rate limiting."
+  },
+  "rag": {
+    "user": "What is the return policy from the manual?",
+    "assistant": "According to the manual [Doc: policy.pdf], items may be returned within 30 days of purchase in their original packaging for a full refund."
+  }
+}
+

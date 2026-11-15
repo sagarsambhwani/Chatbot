@@ -1,4 +1,4 @@
-"""System prompts and conversation message assembly."""
+"""System prompts and in-context message assembly."""
 
 import os
 from typing import List, Dict, Optional
@@ -13,14 +13,15 @@ def load_generator_prompt() -> str:
                 return f.read().strip()
         except Exception:
             pass
-    return "You are a helpful, intelligent conversational assistant.\nAnswer clearly, accurately, and naturally."
+    return "You are a helpful local assistant. Answer clearly, accurately, and naturally."
 
 def build_messages(
     generator_prompt: str,
     user_prompt: str,
     chat_history: Optional[list],
     plan: ResponsePlan,
-    contexts: List[str]
+    contexts: List[str],
+    exemplar: Optional[Dict[str, str]] = None
 ) -> List[Dict[str, str]]:
     sys_inst = generator_prompt
     if plan.target_length == "short":
@@ -29,6 +30,11 @@ def build_messages(
         sys_inst += "\nGuidance: Include a clean, well-commented code implementation."
 
     messages = [{"role": "system", "content": sys_inst}]
+
+    if exemplar:
+        messages.append({"role": "user", "content": exemplar["user"]})
+        messages.append({"role": "assistant", "content": exemplar["assistant"]})
+
     if chat_history:
         for turn in chat_history[-6:]:
             role, content = turn.get("role", "user"), turn.get("content", "").strip()
@@ -38,4 +44,3 @@ def build_messages(
     content = f"{chr(10).join(contexts)}\n\nUser Question: {user_prompt}" if contexts else user_prompt
     messages.append({"role": "user", "content": content})
     return messages
-

@@ -11,6 +11,7 @@ from intelligence.response_planner import ResponsePlanner
 from backend.assistant.prompt_builder import load_generator_prompt, build_messages
 from backend.assistant.context_retriever import retrieve_contexts
 from backend.assistant.streamer import stream_llm
+from backend.assistant.exemplars import get_exemplar
 
 class LocalAssistant:
     def __init__(self, llm_client: Optional[OllamaClient] = None, rag_engine: Optional[RAGEngine] = None):
@@ -27,14 +28,16 @@ class LocalAssistant:
         if use_web and analysis.needs_web_search:
             yield {"type": "status", "message": "Searching the web..."}
         yield {"type": "metadata", "analysis": analysis.model_dump(), "web_sources": web_res, "doc_sources": rag_chunks, "latencies": {"analyzer_seconds": a_time, "search_seconds": s_time, "rag_seconds": r_time}}
-        msgs = build_messages(self.generator_prompt, user_prompt, chat_history, plan, contexts)
+        exemplar = get_exemplar(analysis.intent, has_rag=bool(rag_chunks))
+        msgs = build_messages(self.generator_prompt, user_prompt, chat_history, plan, contexts, exemplar=exemplar)
         yield from stream_llm(msgs, t_start, a_time, s_time, r_time)
 
     def generate_response(self, user_prompt: str, chat_history: list = None, use_web: bool = True, use_rag: bool = True) -> Dict[str, Any]:
         analysis, plan, web_res, s_time, rag_chunks, r_time, a_time, contexts, t_start = retrieve_contexts(
             self.analyzer, self.planner, self.rag, user_prompt, chat_history, use_web, use_rag
         )
-        msgs = build_messages(self.generator_prompt, user_prompt, chat_history, plan, contexts)
+        exemplar = get_exemplar(analysis.intent, has_rag=bool(rag_chunks))
+        msgs = build_messages(self.generator_prompt, user_prompt, chat_history, plan, contexts, exemplar=exemplar)
         t_llm = time.time()
         try:
             resp = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json={"model": LLM_MODEL, "messages": msgs, "stream": False, "keep_alive": -1, "options": {"num_gpu": 99, "temperature": 0.6}}, timeout=90).json()
@@ -47,4 +50,3 @@ class LocalAssistant:
             "answer": reply, "web_sources": web_res, "doc_sources": rag_chunks, "analysis": analysis.model_dump(), "plan": plan.model_dump(),
             "latencies": {"analyzer_seconds": a_time, "search_seconds": s_time, "rag_seconds": r_time, "llm_seconds": round(time.time() - t_llm, 3), "tokens_per_sec": tps, "total_seconds": round(time.time() - t_start, 3)}
         }
-
