@@ -4,7 +4,101 @@
 
 html, body, #root {
   height: 100%;
+  height: 100dvh;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  width: 100%;
 }
 
+/* Custom Scrollbar in Warm Linen Theme */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #dcd4c7; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #c5bbb0; }
+
+/* Prose Styling matching the Screenshot */
+.prose-antigravity {
+  color: #2b2622;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  word-break: break-word;
+}
+.prose-antigravity p { margin-bottom: 0.85rem; }
+.prose-antigravity p:last-child { margin-bottom: 0; }
+.prose-antigravity ul { list-style-type: disc; margin-left: 1.4rem; margin-bottom: 0.85rem; }
+.prose-antigravity ol { list-style-type: decimal; margin-left: 1.4rem; margin-bottom: 0.85rem; }
+.prose-antigravity li { margin-bottom: 0.35rem; }
+.prose-antigravity strong { color: #1c1917; font-weight: 600; }
+.prose-antigravity em { color: #57534e; font-style: italic; }
+.prose-antigravity a { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Inline Code Pill matching the peach/sand badge */
+.prose-antigravity code:not(pre code) {
+  background-color: #f0e7db;
+  color: #6b5344;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.375rem;
+  font-size: 0.85rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border: 1px solid #e3d7c7;
+}
+.prose-antigravity pre {
+  background: #f5efe6;
+  border: 1px solid #e3d7c7;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0.85rem 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  color: #38332e;
+}
+.prose-antigravity pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  color: inherit;
+}
+.prose-antigravity hr {
+  border: none;
+  border-top: 1px solid #e8e1d5;
+  margin: 1.25rem 0;
+}
+.prose-antigravity h1, .prose-antigravity h2, .prose-antigravity h3, .prose-antigravity h4 {
+  color: #2b2622;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.65rem;
+}
+.prose-antigravity h1 { font-size: 1.35rem; }
+.prose-antigravity h2 { font-size: 1.15rem; }
+.prose-antigravity h3 { font-size: 1.05rem; }
+
+/* Blinking typing cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: #2b2622;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: blink 0.8s infinite;
+}
+
+/* Voice recording pulse */
+@keyframes pulse-recording {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  70% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.recording-active {
+  animation: pulse-recording 1.4s infinite;
+  background-color: #ef4444 !important;
+  color: white !important;
+  border-color: #ef4444 !important;
+}
